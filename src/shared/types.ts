@@ -51,6 +51,22 @@ export interface Repo {
   path: string
 }
 
+export interface Stash {
+  /** Stash ref, e.g. "stash@{0}". */
+  ref: string
+  index: number
+  message: string
+  /** Branch the stash was created on, when available. */
+  branch?: string
+}
+
+/** A file changed by a single commit (used in the History view). */
+export interface CommitFile {
+  path: string
+  oldPath?: string
+  status: FileChangeStatus
+}
+
 export type LLMProviderType = 'ollama' | 'openai' | 'anthropic' | 'custom'
 
 export interface LLMProviderConfig {

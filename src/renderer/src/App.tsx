@@ -3,15 +3,18 @@ import type {
   AppSettings,
   Branch,
   Commit,
+  CommitFile,
   FileChange,
   Repo,
-  RepoStatus
+  RepoStatus,
+  Stash
 } from '@shared/types'
 import { unwrap } from './util'
 import { Toolbar } from './components/Toolbar'
 import { ChangesView } from './components/ChangesView'
 import { HistoryView } from './components/HistoryView'
 import { DiffView } from './components/DiffView'
+import { CommitDetail } from './components/CommitDetail'
 import { SettingsModal } from './components/SettingsModal'
 import { CloneModal } from './components/CloneModal'
 
@@ -25,12 +28,19 @@ export default function App(): JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<Branch[]>([])
   const [commits, setCommits] = useState<Commit[]>([])
+  const [stashes, setStashes] = useState<Stash[]>([])
   const [tab, setTab] = useState<Tab>('changes')
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [selectedHash, setSelectedHash] = useState<string | null>(null)
   const [diff, setDiff] = useState<string | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
+
+  // History view state.
+  const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null)
+  const [commitFiles, setCommitFiles] = useState<CommitFile[]>([])
+  const [commitFilePath, setCommitFilePath] = useState<string | null>(null)
+  const [commitDiff, setCommitDiff] = useState<string | null>(null)
+  const [commitDiffLoading, setCommitDiffLoading] = useState(false)
 
   const [summary, setSummary] = useState('')
   const [description, setDescription] = useState('')
@@ -61,14 +71,16 @@ export default function App(): JSX.Element {
   const refresh = useCallback(
     async (repo: Repo): Promise<void> => {
       try {
-        const [s, b, l] = await Promise.all([
+        const [s, b, l, st] = await Promise.all([
           window.api.git.status(repo.path),
           window.api.git.branches(repo.path),
-          window.api.git.log(repo.path, 100)
+          window.api.git.log(repo.path, 100),
+          window.api.git.stashList(repo.path)
         ])
         setStatus(unwrap(s))
         setBranches(unwrap(b))
         setCommits(unwrap(l))
+        setStashes(unwrap(st))
       } catch (err) {
         notify(err instanceof Error ? err.message : String(err), true)
       }
@@ -85,7 +97,10 @@ export default function App(): JSX.Element {
       return
     }
     setSelectedPath(null)
-    setSelectedHash(null)
+    setSelectedCommit(null)
+    setCommitFiles([])
+    setCommitFilePath(null)
+    setCommitDiff(null)
     setDiff(null)
     refresh(currentRepo)
   }, [currentRepo, refresh])
@@ -99,7 +114,6 @@ export default function App(): JSX.Element {
   async function selectFile(file: FileChange): Promise<void> {
     if (!currentRepo) return
     setSelectedPath(file.path)
-    setSelectedHash(null)
     setDiffLoading(true)
     const showStaged = !file.unstaged
     const res = await window.api.git.diff(
@@ -112,14 +126,26 @@ export default function App(): JSX.Element {
     setDiff(res.ok ? res.data ?? '' : `Error: ${res.error}`)
   }
 
-  function selectCommit(commit: Commit): void {
-    setSelectedHash(commit.hash)
-    setSelectedPath(null)
-    setDiff(
-      `commit ${commit.hash}\nAuthor: ${commit.author} <${commit.email}>\nDate:   ${new Date(
-        commit.date * 1000
-      ).toString()}\n\n    ${commit.subject}`
-    )
+  async function loadCommitFileDiff(commit: Commit, file: CommitFile): Promise<void> {
+    if (!currentRepo) return
+    setCommitFilePath(file.path)
+    setCommitDiffLoading(true)
+    const res = await window.api.git.commitDiff(currentRepo.path, commit.hash, file.path)
+    setCommitDiffLoading(false)
+    setCommitDiff(res.ok ? res.data ?? '' : `Error: ${res.error}`)
+  }
+
+  async function selectCommit(commit: Commit): Promise<void> {
+    if (!currentRepo) return
+    setSelectedCommit(commit)
+    setCommitFilePath(null)
+    setCommitDiff(null)
+    setCommitFiles([])
+    const res = await window.api.git.commitFiles(currentRepo.path, commit.hash)
+    if (!res.ok) return notify(res.error!, true)
+    const files = res.data ?? []
+    setCommitFiles(files)
+    if (files.length > 0) loadCommitFileDiff(commit, files[0])
   }
 
   async function toggleFile(file: FileChange, staged: boolean): Promise<void> {
@@ -176,14 +202,53 @@ export default function App(): JSX.Element {
   async function generateMessage(): Promise<void> {
     if (!currentRepo) return
     setGenerating(true)
-    const res = await window.api.llm.generateCommitMessage(currentRepo.path)
+    setSummary('')
+    setDescription('')
+    let acc = ''
+    const res = await window.api.llm.generateCommitMessageStream(currentRepo.path, (chunk) => {
+      acc += chunk
+      const [first, ...rest] = acc.split('\n')
+      setSummary(first ?? '')
+      setDescription(rest.join('\n').trim())
+    })
     setGenerating(false)
-    if (!res.ok) return notify(res.error!, true)
-    const text = (res.data ?? '').trim()
+    if (!res.ok) {
+      setSummary('')
+      setDescription('')
+      return notify(res.error!, true)
+    }
+    // Use the cleaned final text (strips stray quotes/whitespace).
+    const text = (res.data ?? acc).trim()
     const [first, ...rest] = text.split('\n')
     setSummary(first ?? '')
     setDescription(rest.join('\n').trim())
-    notify('Generated a commit message.')
+  }
+
+  async function stashChanges(): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.stashSave(currentRepo.path)
+    if (!res.ok) return notify(res.error!, true)
+    setSelectedPath(null)
+    setDiff(null)
+    notify('Changes stashed.')
+    await refresh(currentRepo)
+  }
+
+  async function stashPop(stash: Stash): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.stashPop(currentRepo.path, stash.ref)
+    if (!res.ok) return notify(res.error!, true)
+    notify('Stash applied.')
+    await refresh(currentRepo)
+  }
+
+  async function stashDrop(stash: Stash): Promise<void> {
+    if (!currentRepo) return
+    if (!confirm(`Delete stash "${stash.message || stash.ref}"? This cannot be undone.`)) return
+    const res = await window.api.git.stashDrop(currentRepo.path, stash.ref)
+    if (!res.ok) return notify(res.error!, true)
+    notify('Stash deleted.')
+    await refresh(currentRepo)
   }
 
   async function sync(): Promise<void> {
@@ -337,6 +402,7 @@ export default function App(): JSX.Element {
             {tab === 'changes' && status && (
               <ChangesView
                 status={status}
+                stashes={stashes}
                 selectedPath={selectedPath}
                 busy={busy}
                 generating={generating}
@@ -351,20 +417,36 @@ export default function App(): JSX.Element {
                 onDiscard={discard}
                 onCommit={doCommit}
                 onGenerate={generateMessage}
+                onStash={stashChanges}
+                onStashPop={stashPop}
+                onStashDrop={stashDrop}
               />
             )}
 
             {tab === 'history' && (
               <HistoryView
                 commits={commits}
-                selectedHash={selectedHash}
+                selectedHash={selectedCommit?.hash ?? null}
                 onSelect={selectCommit}
               />
             )}
           </div>
 
           <div className="main-panel">
-            <DiffView title={diffTitle} diff={diff} loading={diffLoading} />
+            {tab === 'changes' && <DiffView title={diffTitle} diff={diff} loading={diffLoading} />}
+            {tab === 'history' &&
+              (selectedCommit ? (
+                <CommitDetail
+                  commit={selectedCommit}
+                  files={commitFiles}
+                  selectedPath={commitFilePath}
+                  diff={commitDiff}
+                  diffLoading={commitDiffLoading}
+                  onSelectFile={(f) => loadCommitFileDiff(selectedCommit, f)}
+                />
+              ) : (
+                <div className="placeholder">Select a commit to view its changes.</div>
+              ))}
           </div>
         </div>
       )}

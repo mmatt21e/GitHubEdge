@@ -4,10 +4,12 @@ import type {
   Branch,
   ChatMessage,
   Commit,
+  CommitFile,
   GitResult,
   LLMProviderConfig,
   Repo,
-  RepoStatus
+  RepoStatus,
+  Stash
 } from '@shared/types'
 
 const api = {
@@ -52,6 +54,20 @@ const api = {
       staged: boolean,
       untracked: boolean
     ): Promise<GitResult<string>> => ipcRenderer.invoke('git:diff', path, file, staged, untracked),
+    commitFiles: (path: string, hash: string): Promise<GitResult<CommitFile[]>> =>
+      ipcRenderer.invoke('git:commitFiles', path, hash),
+    commitDiff: (path: string, hash: string, file: string): Promise<GitResult<string>> =>
+      ipcRenderer.invoke('git:commitDiff', path, hash, file),
+    stashList: (path: string): Promise<GitResult<Stash[]>> =>
+      ipcRenderer.invoke('git:stashList', path),
+    stashSave: (path: string, message?: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:stashSave', path, message),
+    stashPop: (path: string, ref: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:stashPop', path, ref),
+    stashApply: (path: string, ref: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:stashApply', path, ref),
+    stashDrop: (path: string, ref: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:stashDrop', path, ref),
     clone: (url: string, dir: string): Promise<GitResult<Repo>> =>
       ipcRenderer.invoke('git:clone', url, dir),
     addRepo: (path: string): Promise<GitResult<Repo>> => ipcRenderer.invoke('git:addRepo', path),
@@ -66,7 +82,19 @@ const api = {
     listModels: (provider: LLMProviderConfig): Promise<GitResult<string[]>> =>
       ipcRenderer.invoke('llm:listModels', provider),
     generateCommitMessage: (repoPath: string): Promise<GitResult<string>> =>
-      ipcRenderer.invoke('llm:generateCommitMessage', repoPath)
+      ipcRenderer.invoke('llm:generateCommitMessage', repoPath),
+    generateCommitMessageStream: (
+      repoPath: string,
+      onChunk: (text: string) => void
+    ): Promise<GitResult<string>> => {
+      const requestId = crypto.randomUUID()
+      const channel = `llm:chunk:${requestId}`
+      const listener = (_e: unknown, chunk: string): void => onChunk(chunk)
+      ipcRenderer.on(channel, listener)
+      return ipcRenderer
+        .invoke('llm:generateCommitMessageStream', requestId, repoPath)
+        .finally(() => ipcRenderer.removeListener(channel, listener))
+    }
   }
 }
 

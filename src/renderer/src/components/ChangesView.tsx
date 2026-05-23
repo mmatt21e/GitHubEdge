@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import type { FileChange, RepoStatus } from '@shared/types'
+import type { FileChange, RepoStatus, Stash } from '@shared/types'
 import { statusLetter } from '../util'
 
 interface Props {
   status: RepoStatus
+  stashes: Stash[]
   selectedPath: string | null
   busy: boolean
   generating: boolean
@@ -18,6 +19,9 @@ interface Props {
   onDiscard: (file: FileChange) => void
   onCommit: () => void
   onGenerate: () => void
+  onStash: () => void
+  onStashPop: (stash: Stash) => void
+  onStashDrop: (stash: Stash) => void
 }
 
 export function ChangesView(props: Props): JSX.Element {
@@ -39,9 +43,14 @@ export function ChangesView(props: Props): JSX.Element {
             onChange={(e) => props.onToggleAll(e.target.checked)}
             disabled={status.files.length === 0}
           />
-          <span>
+          <span style={{ flex: 1 }}>
             {status.files.length} changed file{status.files.length === 1 ? '' : 's'}
           </span>
+          {status.files.length > 0 && (
+            <button className="btn-ghost" title="Stash all changes" onClick={props.onStash}>
+              Stash
+            </button>
+          )}
         </div>
         {status.files.map((file) => (
           <div
@@ -86,6 +95,30 @@ export function ChangesView(props: Props): JSX.Element {
           </div>
         )}
       </div>
+
+      {props.stashes.length > 0 && (
+        <div className="stash-section">
+          <div className="file-list-header">
+            <span>
+              {props.stashes.length} stash{props.stashes.length === 1 ? '' : 'es'}
+            </span>
+          </div>
+          {props.stashes.map((s) => (
+            <div className="stash-row" key={s.ref}>
+              <span className="msg" title={s.message}>
+                {s.message || s.ref}
+                {s.branch && <span className="muted"> · {s.branch}</span>}
+              </span>
+              <button className="btn-ghost" title="Apply and remove" onClick={() => props.onStashPop(s)}>
+                Pop
+              </button>
+              <button className="btn-ghost" title="Delete stash" onClick={() => props.onStashDrop(s)}>
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="commit-box">
         <input

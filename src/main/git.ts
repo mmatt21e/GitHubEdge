@@ -5,9 +5,11 @@ import { existsSync, readFileSync } from 'fs'
 import type {
   Branch,
   Commit,
+  CommitFile,
   FileChange,
   FileChangeStatus,
-  RepoStatus
+  RepoStatus,
+  Stash
 } from '@shared/types'
 
 const execFileAsync = promisify(execFile)
@@ -277,6 +279,112 @@ export async function getStagedDiff(repoPath: string): Promise<string> {
     diff = await git(repoPath, ['diff'])
   }
   return diff
+}
+
+function mapNameStatus(code: string): FileChangeStatus {
+  switch (code[0]) {
+    case 'A':
+      return 'added'
+    case 'D':
+      return 'deleted'
+    case 'R':
+      return 'renamed'
+    case 'C':
+      return 'copied'
+    case 'U':
+      return 'conflicted'
+    case 'M':
+    case 'T':
+    default:
+      return 'modified'
+  }
+}
+
+/** Files changed by a single commit. */
+export async function getCommitFiles(repoPath: string, hash: string): Promise<CommitFile[]> {
+  const raw = await git(repoPath, [
+    'diff-tree',
+    '--no-commit-id',
+    '--name-status',
+    '--root',
+    '-M',
+    '-r',
+    '-z',
+    hash
+  ])
+  const files: CommitFile[] = []
+  const parts = raw.split('\0')
+  let i = 0
+  while (i < parts.length) {
+    const code = parts[i]
+    if (!code) {
+      i++
+      continue
+    }
+    if (code[0] === 'R' || code[0] === 'C') {
+      const oldPath = parts[i + 1]
+      const path = parts[i + 2]
+      files.push({ path, oldPath, status: mapNameStatus(code) })
+      i += 3
+    } else {
+      const path = parts[i + 1]
+      files.push({ path, status: mapNameStatus(code) })
+      i += 2
+    }
+  }
+  return files
+}
+
+/** Patch for a single file within a commit. */
+export async function getCommitDiff(
+  repoPath: string,
+  hash: string,
+  filePath: string
+): Promise<string> {
+  return git(repoPath, ['show', '--format=', '-M', hash, '--', filePath])
+}
+
+export async function listStashes(repoPath: string): Promise<Stash[]> {
+  const out = await git(repoPath, [
+    'stash',
+    'list',
+    '--format=%gd%x1f%gs'
+  ]).catch(() => '')
+  const stashes: Stash[] = []
+  let index = 0
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    const [ref, subject = ''] = line.split('\x1f')
+    const branchMatch = subject.match(/^(?:WIP on|On) ([^:]+):/)
+    stashes.push({
+      ref,
+      index: index++,
+      message: subject.replace(/^(?:WIP on|On) [^:]+:\s*/, ''),
+      branch: branchMatch?.[1]
+    })
+  }
+  return stashes
+}
+
+export async function stashSave(repoPath: string, message?: string): Promise<void> {
+  const args = ['stash', 'push', '--include-untracked']
+  if (message && message.trim()) args.push('-m', message.trim())
+  const out = await git(repoPath, args)
+  if (/No local changes to save/i.test(out)) {
+    throw new Error('No local changes to stash.')
+  }
+}
+
+export async function stashPop(repoPath: string, ref: string): Promise<void> {
+  await git(repoPath, ['stash', 'pop', ref])
+}
+
+export async function stashApply(repoPath: string, ref: string): Promise<void> {
+  await git(repoPath, ['stash', 'apply', ref])
+}
+
+export async function stashDrop(repoPath: string, ref: string): Promise<void> {
+  await git(repoPath, ['stash', 'drop', ref])
 }
 
 export async function clone(url: string, targetDir: string): Promise<string> {

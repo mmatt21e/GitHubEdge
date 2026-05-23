@@ -69,6 +69,18 @@ export function registerIpcHandlers(): void {
       git.getDiff(path, file, staged, untracked)
     )
   )
+  ipcMain.handle('git:commitFiles', wrap((path: string, hash: string) => git.getCommitFiles(path, hash)))
+  ipcMain.handle(
+    'git:commitDiff',
+    wrap((path: string, hash: string, file: string) => git.getCommitDiff(path, hash, file))
+  )
+
+  // ---- Stash ----
+  ipcMain.handle('git:stashList', wrap((path: string) => git.listStashes(path)))
+  ipcMain.handle('git:stashSave', wrap((path: string, message?: string) => git.stashSave(path, message)))
+  ipcMain.handle('git:stashPop', wrap((path: string, ref: string) => git.stashPop(path, ref)))
+  ipcMain.handle('git:stashApply', wrap((path: string, ref: string) => git.stashApply(path, ref)))
+  ipcMain.handle('git:stashDrop', wrap((path: string, ref: string) => git.stashDrop(path, ref)))
   ipcMain.handle(
     'git:clone',
     wrap(async (url: string, dir: string) => {
@@ -137,5 +149,31 @@ export function registerIpcHandlers(): void {
       const text = await llm.chat(provider, messages)
       return text.trim().replace(/^["'`]+|["'`]+$/g, '')
     })
+  )
+  ipcMain.handle(
+    'llm:generateCommitMessageStream',
+    async (e, requestId: string, repoPath: string): Promise<GitResult<string>> => {
+      try {
+        const settings = loadSettings()
+        const provider = activeProvider(settings)
+        const diff = await git.getStagedDiff(repoPath)
+        if (!diff.trim()) {
+          throw new Error('No changes to summarize. Make some edits first.')
+        }
+        const truncated =
+          diff.length > 14000 ? diff.slice(0, 14000) + '\n... (diff truncated)' : diff
+        const messages: ChatMessage[] = [
+          { role: 'system', content: settings.commitSystemPrompt || DEFAULT_COMMIT_SYSTEM_PROMPT },
+          { role: 'user', content: `Write a commit message for this diff:\n\n${truncated}` }
+        ]
+        const channel = `llm:chunk:${requestId}`
+        const text = await llm.chatStream(provider, messages, (chunk) => {
+          if (!e.sender.isDestroyed()) e.sender.send(channel, chunk)
+        })
+        return { ok: true, data: text.trim().replace(/^["'`]+|["'`]+$/g, '') }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    }
   )
 }
