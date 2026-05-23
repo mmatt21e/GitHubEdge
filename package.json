@@ -1,0 +1,32 @@
+{
+  "name": "githubedge",
+  "version": "0.1.0",
+  "description": "A GitHub Desktop-style Git client with built-in custom LLM support (local or paid).",
+  "main": "./out/main/index.js",
+  "author": "GitHubEdge",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "build:win": "npm run build && electron-builder --win",
+    "build:unpack": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "electron-vite": "^2.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.4.2",
+    "vite": "^5.1.6"
+  }
+}
