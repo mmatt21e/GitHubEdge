@@ -53,6 +53,10 @@ const api = {
       ipcRenderer.invoke('git:checkout', path, name),
     createBranch: (path: string, name: string): Promise<GitResult> =>
       ipcRenderer.invoke('git:createBranch', path, name),
+    deleteBranch: (path: string, name: string, force?: boolean): Promise<GitResult> =>
+      ipcRenderer.invoke('git:deleteBranch', path, name, force),
+    renameBranch: (path: string, oldName: string, newName: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:renameBranch', path, oldName, newName),
     log: (path: string, limit?: number): Promise<GitResult<Commit[]>> =>
       ipcRenderer.invoke('git:log', path, limit),
     diff: (

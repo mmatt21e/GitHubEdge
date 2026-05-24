@@ -494,6 +494,26 @@ export default function App(): JSX.Element {
     notify(`Created and switched to ${name}.`)
   }
 
+  async function deleteBranch(name: string): Promise<void> {
+    if (!currentRepo) return
+    let res = await window.api.git.deleteBranch(currentRepo.path, name)
+    if (!res.ok && /not fully merged/i.test(res.error ?? '')) {
+      if (!confirm(`Branch "${name}" is not fully merged. Delete it anyway?`)) return
+      res = await window.api.git.deleteBranch(currentRepo.path, name, true)
+    }
+    if (!res.ok) return notify(res.error!, true)
+    await refresh(currentRepo)
+    notify(`Deleted ${name}.`)
+  }
+
+  async function renameBranch(oldName: string, newName: string): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.renameBranch(currentRepo.path, oldName, newName)
+    if (!res.ok) return notify(res.error!, true)
+    await refresh(currentRepo)
+    notify(`Renamed ${oldName} → ${newName}.`)
+  }
+
   function saveSettings(draft: AppSettings): void {
     window.api.settings.save(draft).then((saved) => {
       setSettings(saved)
@@ -524,6 +544,8 @@ export default function App(): JSX.Element {
         onRemoveRepo={removeRepo}
         onCheckout={checkout}
         onCreateBranch={createBranch}
+        onDeleteBranch={deleteBranch}
+        onRenameBranch={renameBranch}
         onMerge={mergeBranch}
         onSync={sync}
         onOpenAccount={() => setShowAccount(true)}

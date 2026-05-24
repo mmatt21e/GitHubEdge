@@ -119,6 +119,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:branches', wrap((path: string) => git.listBranches(path)))
   ipcMain.handle('git:checkout', wrap((path: string, name: string) => git.checkoutBranch(path, name)))
   ipcMain.handle('git:createBranch', wrap((path: string, name: string) => git.createBranch(path, name)))
+  ipcMain.handle(
+    'git:deleteBranch',
+    wrap((path: string, name: string, force?: boolean) => git.deleteBranch(path, name, force))
+  )
+  ipcMain.handle(
+    'git:renameBranch',
+    wrap((path: string, oldName: string, newName: string) =>
+      git.renameBranch(path, oldName, newName)
+    )
+  )
   ipcMain.handle('git:log', wrap((path: string, limit?: number) => git.log(path, limit)))
   ipcMain.handle(
     'git:diff',

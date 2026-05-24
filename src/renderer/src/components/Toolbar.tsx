@@ -15,6 +15,8 @@ interface Props {
   onRemoveRepo: (repo: Repo) => void
   onCheckout: (name: string) => void
   onCreateBranch: (name: string) => void
+  onDeleteBranch: (name: string) => void
+  onRenameBranch: (oldName: string, newName: string) => void
   onMerge: (name: string) => void
   onSync: () => void
   onOpenAccount: () => void
@@ -24,6 +26,8 @@ interface Props {
 export function Toolbar(props: Props): JSX.Element {
   const [openMenu, setOpenMenu] = useState<'repo' | 'branch' | null>(null)
   const [newBranch, setNewBranch] = useState('')
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const { status } = props
 
   function syncLabel(): { main: string; sub: string } {
@@ -37,6 +41,8 @@ export function Toolbar(props: Props): JSX.Element {
   function close(): void {
     setOpenMenu(null)
     setNewBranch('')
+    setRenaming(null)
+    setRenameValue('')
   }
 
   return (
@@ -130,33 +136,83 @@ export function Toolbar(props: Props): JSX.Element {
         {openMenu === 'branch' && (
           <div className="dropdown" onClick={(e) => e.stopPropagation()}>
             <div className="dropdown-section">Branches</div>
-            {props.branches.map((b) => (
-              <div
-                key={b.name}
-                className={`dropdown-item ${b.current ? 'active' : ''}`}
-                onClick={() => {
-                  if (!b.current) props.onCheckout(b.name)
-                  close()
-                }}
-              >
-                <span>{b.name}</span>
-                {b.current ? (
-                  <span className="muted">current</span>
-                ) : (
+            {props.branches.map((b) =>
+              renaming === b.name ? (
+                <div key={b.name} className="dropdown-item" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    style={{ flex: 1 }}
+                    value={renameValue}
+                    autoFocus
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && renameValue.trim() && renameValue.trim() !== b.name) {
+                        props.onRenameBranch(b.name, renameValue.trim())
+                        close()
+                      } else if (e.key === 'Escape') {
+                        setRenaming(null)
+                      }
+                    }}
+                  />
                   <button
-                    className="btn-ghost"
-                    title={`Merge ${b.name} into ${status?.branch}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      props.onMerge(b.name)
+                    className="btn-accent"
+                    disabled={!renameValue.trim() || renameValue.trim() === b.name}
+                    onClick={() => {
+                      props.onRenameBranch(b.name, renameValue.trim())
                       close()
                     }}
                   >
-                    Merge
+                    Rename
                   </button>
-                )}
-              </div>
-            ))}
+                </div>
+              ) : (
+                <div
+                  key={b.name}
+                  className={`dropdown-item ${b.current ? 'active' : ''}`}
+                  onClick={() => {
+                    if (!b.current) props.onCheckout(b.name)
+                    close()
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0 }}>{b.name}</span>
+                  <span className="flex" style={{ gap: 2 }} onClick={(e) => e.stopPropagation()}>
+                    {!b.current && (
+                      <button
+                        className="btn-ghost"
+                        title={`Merge ${b.name} into ${status?.branch}`}
+                        onClick={() => {
+                          props.onMerge(b.name)
+                          close()
+                        }}
+                      >
+                        Merge
+                      </button>
+                    )}
+                    <button
+                      className="btn-ghost"
+                      title="Rename branch"
+                      onClick={() => {
+                        setRenaming(b.name)
+                        setRenameValue(b.name)
+                      }}
+                    >
+                      ✎
+                    </button>
+                    {!b.current && (
+                      <button
+                        className="btn-ghost"
+                        title="Delete branch"
+                        onClick={() => {
+                          props.onDeleteBranch(b.name)
+                          close()
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                </div>
+              )
+            )}
             <div className="dropdown-section">New branch</div>
             <div className="dropdown-item" onClick={(e) => e.stopPropagation()}>
               <input

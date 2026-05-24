@@ -336,6 +336,18 @@ export async function createBranch(repoPath: string, name: string): Promise<void
   await git(repoPath, ['checkout', '-b', name])
 }
 
+export async function deleteBranch(repoPath: string, name: string, force = false): Promise<void> {
+  await git(repoPath, ['branch', force ? '-D' : '-d', name])
+}
+
+export async function renameBranch(
+  repoPath: string,
+  oldName: string,
+  newName: string
+): Promise<void> {
+  await git(repoPath, ['branch', '-m', oldName, newName])
+}
+
 export async function log(repoPath: string, limit = 100): Promise<Commit[]> {
   // Use unit separator (0x1f) between fields and record separator (0x1e) between commits.
   const format = ['%H', '%h', '%an', '%ae', '%at', '%s'].join('%x1f') + '%x1e'
