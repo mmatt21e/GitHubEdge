@@ -469,6 +469,64 @@ select:focus {
   flex-direction: column;
   min-height: 0;
 }
+.pr-section {
+  margin-bottom: 18px;
+}
+.pr-section-title {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.pr-section-title.check-success {
+  color: var(--green);
+}
+.pr-section-title.check-failure {
+  color: var(--red);
+}
+.pr-section-title.check-pending {
+  color: var(--yellow);
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.check-icon {
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+.check-icon.success {
+  color: var(--green);
+}
+.check-icon.failure,
+.check-icon.cancelled,
+.check-icon.timed_out,
+.check-icon.action_required,
+.check-icon.error {
+  color: var(--red);
+}
+.check-icon.in_progress,
+.check-icon.queued {
+  color: var(--yellow);
+}
+.pr-comment {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.review-badge {
+  font-weight: 600;
+}
+.review-badge.review-APPROVED {
+  color: var(--green);
+}
+.review-badge.review-CHANGES_REQUESTED {
+  color: var(--red);
+}
 
 .diff-line.conflict {
   background: rgba(210, 153, 34, 0.25);

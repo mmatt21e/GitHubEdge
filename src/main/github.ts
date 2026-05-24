@@ -1,9 +1,28 @@
 import type {
+  CheckRun,
+  ChecksResult,
   DeviceCode,
   GitHubAccount,
   GitHubRepo,
+  PRComment,
   PullRequest
 } from '@shared/types'
+
+function mapPull(p: any): PullRequest {
+  return {
+    number: p.number,
+    title: p.title,
+    state: p.state,
+    draft: !!p.draft,
+    author: p.user?.login ?? '',
+    headRef: p.head?.ref ?? '',
+    baseRef: p.base?.ref ?? '',
+    headSha: p.head?.sha ?? '',
+    htmlUrl: p.html_url,
+    createdAt: p.created_at,
+    body: p.body ?? undefined
+  }
+}
 
 const API = 'https://api.github.com'
 const UA = 'GitHubEdge'
@@ -77,18 +96,7 @@ export async function listPullRequests(
     token,
     `/repos/${owner}/${repo}/pulls?state=open&per_page=50&sort=updated&direction=desc`
   )
-  return data.map((p) => ({
-    number: p.number,
-    title: p.title,
-    state: p.state,
-    draft: !!p.draft,
-    author: p.user?.login ?? '',
-    headRef: p.head?.ref ?? '',
-    baseRef: p.base?.ref ?? '',
-    htmlUrl: p.html_url,
-    createdAt: p.created_at,
-    body: p.body ?? undefined
-  }))
+  return data.map(mapPull)
 }
 
 export async function createPullRequest(
@@ -113,19 +121,91 @@ export async function createPullRequest(
     }
     throw new Error(`GitHub: ${msg}`)
   }
-  const p = JSON.parse(text)
-  return {
-    number: p.number,
-    title: p.title,
-    state: p.state,
-    draft: !!p.draft,
-    author: p.user?.login ?? '',
-    headRef: p.head?.ref ?? '',
-    baseRef: p.base?.ref ?? '',
-    htmlUrl: p.html_url,
-    createdAt: p.created_at,
-    body: p.body ?? undefined
+  return mapPull(JSON.parse(text))
+}
+
+export async function getPullRequestChecks(
+  token: string,
+  owner: string,
+  repo: string,
+  ref: string
+): Promise<ChecksResult> {
+  const runs: CheckRun[] = []
+  // GitHub Checks API (Actions, most modern CI).
+  try {
+    const data = await apiGet(token, `/repos/${owner}/${repo}/commits/${ref}/check-runs`)
+    for (const c of data.check_runs ?? []) {
+      runs.push({
+        name: c.name,
+        status: c.status,
+        conclusion: c.conclusion ?? undefined,
+        detailsUrl: c.details_url ?? undefined
+      })
+    }
+  } catch {
+    /* ignore */
   }
+  // Legacy commit statuses (older CI integrations).
+  try {
+    const data = await apiGet(token, `/repos/${owner}/${repo}/commits/${ref}/status`)
+    for (const s of data.statuses ?? []) {
+      runs.push({
+        name: s.context,
+        status: s.state === 'pending' ? 'in_progress' : 'completed',
+        conclusion: s.state === 'pending' ? undefined : s.state,
+        detailsUrl: s.target_url ?? undefined
+      })
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const failureConclusions = new Set(['failure', 'cancelled', 'timed_out', 'action_required', 'error'])
+  let state: ChecksResult['state'] = 'none'
+  if (runs.length > 0) {
+    if (runs.some((r) => r.conclusion && failureConclusions.has(r.conclusion))) state = 'failure'
+    else if (runs.some((r) => r.status !== 'completed')) state = 'pending'
+    else state = 'success'
+  }
+  return { state, runs }
+}
+
+export async function getPullRequestComments(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<PRComment[]> {
+  const out: PRComment[] = []
+  const issueComments: any[] = await apiGet(
+    token,
+    `/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100`
+  ).catch(() => [])
+  for (const c of issueComments) {
+    out.push({
+      author: c.user?.login ?? '',
+      body: c.body ?? '',
+      createdAt: c.created_at,
+      kind: 'comment'
+    })
+  }
+  const reviews: any[] = await apiGet(
+    token,
+    `/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=100`
+  ).catch(() => [])
+  for (const r of reviews) {
+    // Skip empty "commented" reviews that carry no body (inline-only noise).
+    if (r.state === 'COMMENTED' && !r.body) continue
+    out.push({
+      author: r.user?.login ?? '',
+      body: r.body ?? '',
+      createdAt: r.submitted_at ?? r.created_at,
+      kind: 'review',
+      state: r.state
+    })
+  }
+  out.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+  return out
 }
 
 /** Parse a GitHub remote URL into owner/repo. Supports HTTPS and SSH forms. */

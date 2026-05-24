@@ -215,6 +215,20 @@ export function registerIpcHandlers(): void {
     })
   )
   ipcMain.handle(
+    'github:prChecks',
+    wrap(async (repoPath: string, ref: string) => {
+      const { owner, repo } = await githubContext(repoPath)
+      return github.getPullRequestChecks(requireToken(), owner, repo, ref)
+    })
+  )
+  ipcMain.handle(
+    'github:prComments',
+    wrap(async (repoPath: string, prNumber: number) => {
+      const { owner, repo } = await githubContext(repoPath)
+      return github.getPullRequestComments(requireToken(), owner, repo, prNumber)
+    })
+  )
+  ipcMain.handle(
     'github:createPull',
     wrap(
       async (

@@ -3,6 +3,7 @@ import type {
   AppSettings,
   Branch,
   ChatMessage,
+  ChecksResult,
   Commit,
   CommitFile,
   DeviceCode,
@@ -11,6 +12,7 @@ import type {
   GitResult,
   LLMProviderConfig,
   MergeResult,
+  PRComment,
   PullRequest,
   Repo,
   RepoStatus,
@@ -132,6 +134,10 @@ const api = {
       ipcRenderer.invoke('github:checkoutPull', repoPath, prNumber),
     pulls: (repoPath: string): Promise<GitResult<PullRequest[]>> =>
       ipcRenderer.invoke('github:pulls', repoPath),
+    prChecks: (repoPath: string, ref: string): Promise<GitResult<ChecksResult>> =>
+      ipcRenderer.invoke('github:prChecks', repoPath, ref),
+    prComments: (repoPath: string, prNumber: number): Promise<GitResult<PRComment[]>> =>
+      ipcRenderer.invoke('github:prComments', repoPath, prNumber),
     createPull: (
       repoPath: string,
       params: { title: string; base: string; body?: string; draft?: boolean }

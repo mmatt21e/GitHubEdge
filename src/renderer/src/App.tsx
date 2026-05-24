@@ -646,7 +646,11 @@ export default function App(): JSX.Element {
               ))}
             {tab === 'pulls' &&
               (selectedPR ? (
-                <PullRequestDetail pr={selectedPR} onCheckout={checkoutPR} />
+                <PullRequestDetail
+                  pr={selectedPR}
+                  repoPath={currentRepo.path}
+                  onCheckout={checkoutPR}
+                />
               ) : (
                 <div className="placeholder">Select a pull request to view details.</div>
               ))}
