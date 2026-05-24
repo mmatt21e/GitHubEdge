@@ -15,7 +15,7 @@ Built with Electron + React + TypeScript.
 - **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, view/create/check out pull requests, profile display
 - **AI commit messages** streamed from your chosen model
 - Configure multiple AI providers
-- Secrets (GitHub token, provider API keys) are encrypted at rest with the OS secure-storage backend (Windows DPAPI / macOS Keychain / Linux libsecret)
+- Secrets (GitHub token, provider API keys) are encrypted at rest with the OS secure-storage backend (Windows DPAPI / macOS Keychain / Linux libsecret) and never sent to the UI — saved keys show as "leave blank to keep"
 
 ## GitHub sign-in
 

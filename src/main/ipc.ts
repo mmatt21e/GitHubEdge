@@ -8,8 +8,42 @@ import {
   type ChatMessage,
   type LLMProviderConfig,
   type GitResult,
-  DEFAULT_COMMIT_SYSTEM_PROMPT
+  DEFAULT_COMMIT_SYSTEM_PROMPT,
+  REDACTED_SECRET
 } from '@shared/types'
+
+/** Replace stored secrets with a placeholder before sending settings to the renderer. */
+function redactForRenderer(settings: AppSettings): AppSettings {
+  const copy: AppSettings = JSON.parse(JSON.stringify(settings))
+  for (const p of copy.providers) {
+    if (p.apiKey) p.apiKey = REDACTED_SECRET
+  }
+  if (copy.github?.token) copy.github.token = REDACTED_SECRET
+  return copy
+}
+
+/**
+ * Reconcile secrets coming back from the renderer: a placeholder means "keep the
+ * stored value", an empty string means "clear it", anything else is a new value.
+ */
+function mergeSecrets(incoming: AppSettings, existing: AppSettings): AppSettings {
+  const merged: AppSettings = JSON.parse(JSON.stringify(incoming))
+  for (const p of merged.providers) {
+    if (p.apiKey === REDACTED_SECRET) {
+      p.apiKey = existing.providers.find((e) => e.id === p.id)?.apiKey
+    } else if (p.apiKey === '') {
+      p.apiKey = undefined
+    }
+  }
+  if (merged.github) {
+    if (merged.github.token === REDACTED_SECRET) {
+      merged.github.token = existing.github?.token
+    } else if (merged.github.token === '') {
+      merged.github.token = undefined
+    }
+  }
+  return merged
+}
 
 function requireToken(): string {
   const token = loadSettings().github?.token
@@ -52,11 +86,12 @@ export function registerIpcHandlers(): void {
   git.setAuthToken(loadSettings().github?.token)
 
   // ---- Settings ----
-  ipcMain.handle('settings:get', () => loadSettings())
-  ipcMain.handle('settings:save', (_e, settings: AppSettings) => {
-    const saved = saveSettings(settings)
+  ipcMain.handle('settings:get', () => redactForRenderer(loadSettings()))
+  ipcMain.handle('settings:save', (_e, incoming: AppSettings) => {
+    const merged = mergeSecrets(incoming, loadSettings())
+    const saved = saveSettings(merged)
     git.setAuthToken(saved.github?.token)
-    return saved
+    return redactForRenderer(saved)
   })
 
   // ---- Dialogs ----

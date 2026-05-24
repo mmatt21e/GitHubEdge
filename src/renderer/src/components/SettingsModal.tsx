@@ -4,7 +4,8 @@ import {
   type LLMProviderConfig,
   type LLMProviderType,
   DEFAULT_COMMIT_SYSTEM_PROMPT,
-  PROVIDER_DEFAULT_BASE_URL
+  PROVIDER_DEFAULT_BASE_URL,
+  REDACTED_SECRET
 } from '@shared/types'
 import { uuid } from '../util'
 
@@ -181,8 +182,14 @@ export function SettingsModal({ settings, onClose, onSave, notify }: Props): JSX
                   <label>API key</label>
                   <input
                     type="password"
-                    placeholder={p.type === 'custom' ? 'optional' : 'sk-…'}
-                    value={p.apiKey ?? ''}
+                    placeholder={
+                      p.apiKey === REDACTED_SECRET
+                        ? 'saved — leave blank to keep'
+                        : p.type === 'custom'
+                          ? 'optional'
+                          : 'sk-…'
+                    }
+                    value={p.apiKey === REDACTED_SECRET ? '' : p.apiKey ?? ''}
                     onChange={(e) => updateProvider(p.id, { apiKey: e.target.value })}
                   />
                   {p.type === 'custom' && (
