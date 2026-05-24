@@ -116,6 +116,21 @@ export function SettingsModal({ settings, onClose, onSave, notify }: Props): JSX
           </button>
         </div>
         <div className="modal-body">
+          <div className="field">
+            <label>Appearance</label>
+            <select
+              value={draft.theme ?? 'system'}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, theme: e.target.value as AppSettings['theme'] }))
+              }
+              style={{ maxWidth: 200 }}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0 16px' }} />
           <p className="muted">
             Configure one or more models. The active provider (radio button) is used for AI
             commit messages. Keys are stored locally on this machine only.

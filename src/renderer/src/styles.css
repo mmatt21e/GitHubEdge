@@ -18,8 +18,14 @@
   color: var(--text);
 }
 
+/* Dark palette: applied when explicitly chosen, or when following the OS in dark mode. */
+:root[data-theme='dark'],
+:root[data-theme='system'] {
+  color-scheme: light dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme='system'],
+  :root:not([data-theme]) {
     --bg: #0d1117;
     --bg-elevated: #161b22;
     --bg-toolbar: #161b22;
@@ -34,6 +40,21 @@
     --selected: #163356;
     --selected-border: #1f6feb;
   }
+}
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --bg-toolbar: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #2f81f7;
+  --accent-hover: #1f6feb;
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --selected: #163356;
+  --selected-border: #1f6feb;
 }
 
 * {

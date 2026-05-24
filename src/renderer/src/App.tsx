@@ -84,6 +84,11 @@ export default function App(): JSX.Element {
     toastTimer.current = setTimeout(() => setToast(null), error ? 6000 : 3500)
   }, [])
 
+  // Apply the selected theme to the document.
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme ?? 'system'
+  }, [settings.theme])
+
   // Initial load.
   useEffect(() => {
     window.api.settings.get().then((s) => {
