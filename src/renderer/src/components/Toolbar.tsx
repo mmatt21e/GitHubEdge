@@ -43,6 +43,8 @@ export function Toolbar(props: Props): JSX.Element {
   const filteredBranches = props.branches.filter((b) =>
     b.name.toLowerCase().includes(branchFilter.toLowerCase())
   )
+  const localBranches = filteredBranches.filter((b) => !b.remote)
+  const remoteBranches = filteredBranches.filter((b) => b.remote)
 
   function syncLabel(): { main: string; sub: string } {
     if (!status) return { main: 'Fetch', sub: 'origin' }
@@ -240,7 +242,7 @@ export function Toolbar(props: Props): JSX.Element {
               </div>
             )}
             <div className="dropdown-section">Branches</div>
-            {filteredBranches.map((b) =>
+            {localBranches.map((b) =>
               renaming === b.name ? (
                 <div key={b.name} className="dropdown-item" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -316,6 +318,25 @@ export function Toolbar(props: Props): JSX.Element {
                   </span>
                 </div>
               )
+            )}
+            {remoteBranches.length > 0 && (
+              <>
+                <div className="dropdown-section">Remote branches</div>
+                {remoteBranches.map((b) => (
+                  <div
+                    key={b.name}
+                    className="dropdown-item"
+                    title={`Check out ${b.name}`}
+                    onClick={() => {
+                      props.onCheckout(b.name.slice(b.name.indexOf('/') + 1))
+                      close()
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0 }}>{b.name}</span>
+                    <span className="muted">remote</span>
+                  </div>
+                ))}
+              </>
             )}
             <div className="dropdown-section">New branch</div>
             <div className="dropdown-item" onClick={(e) => e.stopPropagation()}>

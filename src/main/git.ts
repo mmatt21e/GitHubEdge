@@ -332,14 +332,27 @@ export async function listBranches(repoPath: string): Promise<Branch[]> {
     '--format=%(refname:short)%09%(HEAD)%09%(upstream:short)'
   ])
   const branches: Branch[] = []
+  const localNames = new Set<string>()
   for (const line of out.split('\n')) {
     if (!line.trim()) continue
     const [name, head, upstream] = line.split('\t')
+    localNames.add(name)
     branches.push({
       name,
       current: head === '*',
       upstream: upstream || undefined
     })
+  }
+  // Remote-tracking branches without a matching local branch.
+  const remoteOut = await git(repoPath, ['branch', '-r', '--format=%(refname:short)']).catch(
+    () => ''
+  )
+  for (const line of remoteOut.split('\n')) {
+    const name = line.trim()
+    if (!name || name.includes('->')) continue // skip e.g. "origin/HEAD -> origin/main"
+    const short = name.slice(name.indexOf('/') + 1)
+    if (localNames.has(short)) continue
+    branches.push({ name, current: false, remote: true })
   }
   return branches
 }
