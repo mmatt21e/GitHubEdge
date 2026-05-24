@@ -149,6 +149,12 @@ export function registerIpcHandlers(): void {
     wrap((path: string, file: string, side: 'ours' | 'theirs') => git.resolveUsing(path, file, side))
   )
   ipcMain.handle('git:fileContent', wrap((path: string, file: string) => git.readWorkingFile(path, file)))
+  ipcMain.handle(
+    'git:writeConflict',
+    wrap((path: string, file: string, content: string) =>
+      git.writeConflictResolution(path, file, content)
+    )
+  )
   ipcMain.handle('git:remoteUrl', wrap((path: string) => git.getRemoteUrl(path)))
 
   // ---- GitHub ----

@@ -25,7 +25,7 @@ interface Props {
   onStashDrop: (stash: Stash) => void
   onAbortMerge: () => void
   onResolve: (file: FileChange, side: 'ours' | 'theirs') => void
-  onOpenFile: (file: FileChange) => void
+  onEditConflict: (file: FileChange) => void
 }
 
 export function ChangesView(props: Props): JSX.Element {
@@ -103,7 +103,11 @@ export function ChangesView(props: Props): JSX.Element {
                 <button className="btn-ghost" title="Keep their version" onClick={() => props.onResolve(file, 'theirs')}>
                   Theirs
                 </button>
-                <button className="btn-ghost" title="Open in editor" onClick={() => props.onOpenFile(file)}>
+                <button
+                  className="btn-ghost"
+                  title="Resolve in editor"
+                  onClick={() => props.onEditConflict(file)}
+                >
                   Edit
                 </button>
               </span>

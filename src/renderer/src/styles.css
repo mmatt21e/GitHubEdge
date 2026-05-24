@@ -450,6 +450,58 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* ---------- Conflict editor ---------- */
+.conflict-hunk {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.conflict-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.conflict-side pre {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.conflict-side-head {
+  font-weight: 600;
+  font-size: 12px;
+}
+.conflict-side-head.ours {
+  color: var(--green);
+}
+.conflict-side-head.theirs {
+  color: var(--accent);
+}
+.conflict-both {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+.conflict-text {
+  width: 100%;
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre;
+  overflow: auto;
+}
+
 /* ---------- Merge banner ---------- */
 .merge-banner {
   display: flex;

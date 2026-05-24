@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { basename, dirname } from 'path'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import type {
   Branch,
   Commit,
@@ -289,6 +289,25 @@ export async function readWorkingFile(repoPath: string, filePath: string): Promi
   } catch {
     return '(binary or unreadable file)'
   }
+}
+
+const CONFLICT_MARKER = /^(<{7} |={7}$|>{7} )/m
+
+/**
+ * Write resolved contents for a file. If no conflict markers remain the file is
+ * staged (marking it resolved); otherwise it is left unmerged. Returns whether
+ * it was staged.
+ */
+export async function writeConflictResolution(
+  repoPath: string,
+  filePath: string,
+  content: string
+): Promise<{ staged: boolean }> {
+  const full = `${repoPath.replace(/[\\/]+$/, '')}/${filePath}`
+  writeFileSync(full, content, 'utf-8')
+  if (CONFLICT_MARKER.test(content)) return { staged: false }
+  await git(repoPath, ['add', '--', filePath])
+  return { staged: true }
 }
 
 export async function listBranches(repoPath: string): Promise<Branch[]> {

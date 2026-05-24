@@ -25,6 +25,7 @@ import { RepoBrowserModal } from './components/RepoBrowserModal'
 import { PullRequestsView } from './components/PullRequestsView'
 import { PullRequestDetail } from './components/PullRequestDetail'
 import { CreatePRModal } from './components/CreatePRModal'
+import { ConflictEditor } from './components/ConflictEditor'
 
 type Tab = 'changes' | 'history' | 'pulls'
 
@@ -70,6 +71,7 @@ export default function App(): JSX.Element {
   const [showAccount, setShowAccount] = useState(false)
   const [showRepoBrowser, setShowRepoBrowser] = useState(false)
   const [showCreatePR, setShowCreatePR] = useState(false)
+  const [conflictFile, setConflictFile] = useState<FileChange | null>(null)
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -287,10 +289,12 @@ export default function App(): JSX.Element {
     await refresh(currentRepo)
   }
 
-  async function openConflictFile(file: FileChange): Promise<void> {
+  async function onConflictResolved(): Promise<void> {
     if (!currentRepo) return
-    const sep = currentRepo.path.includes('\\') ? '\\' : '/'
-    await window.api.shell.openPath(`${currentRepo.path.replace(/[\\/]+$/, '')}${sep}${file.path}`)
+    setConflictFile(null)
+    setSelectedPath(null)
+    setDiff(null)
+    await refresh(currentRepo)
   }
 
   // ---- GitHub ----
@@ -595,7 +599,7 @@ export default function App(): JSX.Element {
                 onStashDrop={stashDrop}
                 onAbortMerge={abortMerge}
                 onResolve={resolveConflict}
-                onOpenFile={openConflictFile}
+                onEditConflict={setConflictFile}
               />
             )}
 
@@ -692,6 +696,16 @@ export default function App(): JSX.Element {
           headBranch={status.branch}
           onClose={() => setShowCreatePR(false)}
           onCreate={createPull}
+        />
+      )}
+
+      {conflictFile && currentRepo && (
+        <ConflictEditor
+          repoPath={currentRepo.path}
+          filePath={conflictFile.path}
+          onClose={() => setConflictFile(null)}
+          onResolved={onConflictResolved}
+          notify={notify}
         />
       )}
 

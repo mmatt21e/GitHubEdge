@@ -86,6 +86,12 @@ const api = {
       ipcRenderer.invoke('git:resolve', path, file, side),
     fileContent: (path: string, file: string): Promise<GitResult<string>> =>
       ipcRenderer.invoke('git:fileContent', path, file),
+    writeConflict: (
+      path: string,
+      file: string,
+      content: string
+    ): Promise<GitResult<{ staged: boolean }>> =>
+      ipcRenderer.invoke('git:writeConflict', path, file, content),
     remoteUrl: (path: string): Promise<GitResult<string | undefined>> =>
       ipcRenderer.invoke('git:remoteUrl', path),
     clone: (url: string, dir: string): Promise<GitResult<Repo>> =>
