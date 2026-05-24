@@ -351,6 +351,90 @@ select:focus {
 .diff-line.meta {
   color: var(--text-muted);
 }
+.diff-sign {
+  display: inline-block;
+  width: 1ch;
+  user-select: none;
+}
+
+/* highlight.js token colors (theme-aware, no external stylesheet) */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: #cf222e;
+}
+.hljs-function .hljs-keyword {
+  color: #cf222e;
+}
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-quote {
+  color: #0a3069;
+}
+.hljs-comment {
+  color: #6e7781;
+  font-style: italic;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-meta {
+  color: #0550ae;
+}
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-title.function_ {
+  color: #8250df;
+}
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attribute {
+  color: #953800;
+}
+.hljs-tag {
+  color: var(--text-muted);
+}
+@media (prefers-color-scheme: dark) {
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-section,
+  .hljs-link {
+    color: #ff7b72;
+  }
+  .hljs-string,
+  .hljs-attr,
+  .hljs-template-tag,
+  .hljs-quote {
+    color: #a5d6ff;
+  }
+  .hljs-comment {
+    color: #8b949e;
+  }
+  .hljs-number,
+  .hljs-symbol,
+  .hljs-meta {
+    color: #79c0ff;
+  }
+  .hljs-title,
+  .hljs-name,
+  .hljs-type,
+  .hljs-built_in,
+  .hljs-title.class_,
+  .hljs-title.function_ {
+    color: #d2a8ff;
+  }
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-attribute {
+    color: #ffa657;
+  }
+}
 
 /* ---------- Commit detail (history) ---------- */
 .commit-detail {

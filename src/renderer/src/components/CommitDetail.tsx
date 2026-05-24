@@ -45,7 +45,7 @@ export function CommitDetail({
           </div>
         ))}
       </div>
-      <DiffView diff={diff} loading={diffLoading} />
+      <DiffView filePath={selectedPath ?? undefined} diff={diff} loading={diffLoading} />
     </div>
   )
 }

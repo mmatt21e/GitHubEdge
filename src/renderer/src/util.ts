@@ -58,3 +58,62 @@ export function relativeTime(unixSeconds: number): string {
 export function uuid(): string {
   return crypto.randomUUID()
 }
+
+const EXT_LANGUAGE: Record<string, string> = {
+  js: 'javascript',
+  jsx: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
+  py: 'python',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+  java: 'java',
+  kt: 'kotlin',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  cc: 'cpp',
+  hpp: 'cpp',
+  cs: 'csharp',
+  php: 'php',
+  swift: 'swift',
+  m: 'objectivec',
+  scala: 'scala',
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  ps1: 'powershell',
+  html: 'xml',
+  xml: 'xml',
+  vue: 'xml',
+  svg: 'xml',
+  css: 'css',
+  scss: 'scss',
+  less: 'less',
+  json: 'json',
+  yml: 'yaml',
+  yaml: 'yaml',
+  toml: 'ini',
+  ini: 'ini',
+  md: 'markdown',
+  markdown: 'markdown',
+  sql: 'sql',
+  dockerfile: 'dockerfile',
+  lua: 'lua',
+  r: 'r',
+  dart: 'dart'
+}
+
+/** Best-effort highlight.js language id for a file path, or undefined. */
+export function languageForPath(path: string | undefined): string | undefined {
+  if (!path) return undefined
+  const base = path.split(/[\\/]/).pop() ?? ''
+  if (/^dockerfile/i.test(base)) return 'dockerfile'
+  if (/^makefile/i.test(base)) return 'makefile'
+  const ext = base.includes('.') ? base.split('.').pop()!.toLowerCase() : ''
+  return EXT_LANGUAGE[ext]
+}
+

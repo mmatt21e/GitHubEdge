@@ -623,7 +623,14 @@ export default function App(): JSX.Element {
           </div>
 
           <div className="main-panel">
-            {tab === 'changes' && <DiffView title={diffTitle} diff={diff} loading={diffLoading} />}
+            {tab === 'changes' && (
+              <DiffView
+                title={diffTitle}
+                filePath={selectedPath ?? undefined}
+                diff={diff}
+                loading={diffLoading}
+              />
+            )}
             {tab === 'history' &&
               (selectedCommit ? (
                 <CommitDetail
