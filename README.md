@@ -12,9 +12,10 @@ Built with Electron + React + TypeScript.
 - Branch list, switch, create, and **merge** with conflict resolution (use ours/theirs, open in editor, abort/continue)
 - Commit history with per-commit file diffs
 - Stash save / pop / drop
-- **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, view and create pull requests, profile display
+- **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, view/create/check out pull requests, profile display
 - **AI commit messages** streamed from your chosen model
-- Configure multiple AI providers; keys are stored locally only
+- Configure multiple AI providers
+- Secrets (GitHub token, provider API keys) are encrypted at rest with the OS secure-storage backend (Windows DPAPI / macOS Keychain / Linux libsecret)
 
 ## GitHub sign-in
 

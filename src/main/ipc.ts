@@ -169,6 +169,10 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('github:repos', wrap(() => github.listUserRepos(requireToken())))
   ipcMain.handle(
+    'github:checkoutPull',
+    wrap((repoPath: string, prNumber: number) => git.checkoutPullRequest(repoPath, prNumber))
+  )
+  ipcMain.handle(
     'github:pulls',
     wrap(async (repoPath: string) => {
       const { owner, repo } = await githubContext(repoPath)

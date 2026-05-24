@@ -490,6 +490,16 @@ export async function clone(url: string, targetDir: string): Promise<string> {
   return targetDir
 }
 
+/** Fetch a GitHub pull request into a local "pr/<number>" branch and check it out. */
+export async function checkoutPullRequest(repoPath: string, prNumber: number): Promise<string> {
+  const local = `pr/${prNumber}`
+  await git(repoPath, ['fetch', 'origin', `+pull/${prNumber}/head:${local}`], {
+    authenticated: true
+  })
+  await git(repoPath, ['checkout', local])
+  return local
+}
+
 export function repoName(path: string): string {
   return basename(path.replace(/[\\/]+$/, ''))
 }

@@ -128,6 +128,8 @@ const api = {
     ): Promise<GitResult<GitHubAccount>> =>
       ipcRenderer.invoke('github:devicePoll', deviceCode, interval, expiresIn),
     repos: (): Promise<GitResult<GitHubRepo[]>> => ipcRenderer.invoke('github:repos'),
+    checkoutPull: (repoPath: string, prNumber: number): Promise<GitResult<string>> =>
+      ipcRenderer.invoke('github:checkoutPull', repoPath, prNumber),
     pulls: (repoPath: string): Promise<GitResult<PullRequest[]>> =>
       ipcRenderer.invoke('github:pulls', repoPath),
     createPull: (

@@ -1,6 +1,23 @@
+import { useState } from 'react'
 import type { PullRequest } from '@shared/types'
 
-export function PullRequestDetail({ pr }: { pr: PullRequest }): JSX.Element {
+interface Props {
+  pr: PullRequest
+  onCheckout: (pr: PullRequest) => Promise<void>
+}
+
+export function PullRequestDetail({ pr, onCheckout }: Props): JSX.Element {
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  async function checkout(): Promise<void> {
+    setCheckingOut(true)
+    try {
+      await onCheckout(pr)
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
   return (
     <div className="pr-detail">
       <div className="diff-header">
@@ -13,13 +30,14 @@ export function PullRequestDetail({ pr }: { pr: PullRequest }): JSX.Element {
         </div>
       </div>
       <div style={{ padding: 16, overflow: 'auto' }}>
-        <button
-          className="btn-accent"
-          style={{ marginBottom: 14 }}
-          onClick={() => window.api.shell.openExternal(pr.htmlUrl)}
-        >
-          View on GitHub
-        </button>
+        <div className="flex gap" style={{ marginBottom: 14 }}>
+          <button className="btn-accent" disabled={checkingOut} onClick={checkout}>
+            {checkingOut ? <span className="spinner" /> : 'Checkout locally'}
+          </button>
+          <button className="btn" onClick={() => window.api.shell.openExternal(pr.htmlUrl)}>
+            View on GitHub
+          </button>
+        </div>
         <pre
           style={{
             whiteSpace: 'pre-wrap',

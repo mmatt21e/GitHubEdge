@@ -349,6 +349,18 @@ export default function App(): JSX.Element {
     await loadPulls()
   }
 
+  async function checkoutPR(pr: PullRequest): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.github.checkoutPull(currentRepo.path, pr.number)
+    if (!res.ok) {
+      notify(res.error!, true)
+      throw new Error(res.error)
+    }
+    notify(`Checked out "${res.data}" for PR #${pr.number}.`)
+    setTab('changes')
+    await refresh(currentRepo)
+  }
+
   async function generateMessage(): Promise<void> {
     if (!currentRepo) return
     setGenerating(true)
@@ -627,7 +639,7 @@ export default function App(): JSX.Element {
               ))}
             {tab === 'pulls' &&
               (selectedPR ? (
-                <PullRequestDetail pr={selectedPR} />
+                <PullRequestDetail pr={selectedPR} onCheckout={checkoutPR} />
               ) : (
                 <div className="placeholder">Select a pull request to view details.</div>
               ))}
