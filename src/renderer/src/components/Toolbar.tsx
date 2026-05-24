@@ -31,7 +31,18 @@ export function Toolbar(props: Props): JSX.Element {
   const [newBranch, setNewBranch] = useState('')
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [repoFilter, setRepoFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const { status } = props
+
+  const filteredRepos = props.repos.filter(
+    (r) =>
+      r.name.toLowerCase().includes(repoFilter.toLowerCase()) ||
+      r.path.toLowerCase().includes(repoFilter.toLowerCase())
+  )
+  const filteredBranches = props.branches.filter((b) =>
+    b.name.toLowerCase().includes(branchFilter.toLowerCase())
+  )
 
   function syncLabel(): { main: string; sub: string } {
     if (!status) return { main: 'Fetch', sub: 'origin' }
@@ -59,6 +70,8 @@ export function Toolbar(props: Props): JSX.Element {
     setNewBranch('')
     setRenaming(null)
     setRenameValue('')
+    setRepoFilter('')
+    setBranchFilter('')
   }
 
   return (
@@ -73,11 +86,22 @@ export function Toolbar(props: Props): JSX.Element {
         <span className="value">{props.currentRepo?.name ?? 'No repository'} ▾</span>
         {openMenu === 'repo' && (
           <div className="dropdown" style={{ left: 0 }} onClick={(e) => e.stopPropagation()}>
+            {props.repos.length > 6 && (
+              <div style={{ padding: 8 }}>
+                <input
+                  style={{ width: '100%' }}
+                  placeholder="Filter repositories…"
+                  value={repoFilter}
+                  autoFocus
+                  onChange={(e) => setRepoFilter(e.target.value)}
+                />
+              </div>
+            )}
             <div className="dropdown-section">Repositories</div>
             {props.repos.length === 0 && (
               <div className="dropdown-item muted">None added yet</div>
             )}
-            {props.repos.map((repo) => (
+            {filteredRepos.map((repo) => (
               <div
                 key={repo.path}
                 className={`dropdown-item ${
@@ -204,8 +228,19 @@ export function Toolbar(props: Props): JSX.Element {
         <span className="value">{status?.branch ?? '—'} ▾</span>
         {openMenu === 'branch' && (
           <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+            {props.branches.length > 6 && (
+              <div style={{ padding: 8 }}>
+                <input
+                  style={{ width: '100%' }}
+                  placeholder="Filter branches…"
+                  value={branchFilter}
+                  autoFocus
+                  onChange={(e) => setBranchFilter(e.target.value)}
+                />
+              </div>
+            )}
             <div className="dropdown-section">Branches</div>
-            {props.branches.map((b) =>
+            {filteredBranches.map((b) =>
               renaming === b.name ? (
                 <div key={b.name} className="dropdown-item" onClick={(e) => e.stopPropagation()}>
                   <input

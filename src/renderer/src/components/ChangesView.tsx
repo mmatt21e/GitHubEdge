@@ -37,6 +37,10 @@ interface Props {
 export function ChangesView(props: Props): JSX.Element {
   const { status } = props
   const [hover, setHover] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  const visibleFiles = filter
+    ? status.files.filter((f) => f.path.toLowerCase().includes(filter.toLowerCase()))
+    : status.files
   const allStaged = status.files.length > 0 && status.files.every((f) => f.staged)
   const stagedCount = status.files.filter((f) => f.staged).length
   const conflictCount = status.files.filter((f) => f.status === 'conflicted').length
@@ -87,7 +91,17 @@ export function ChangesView(props: Props): JSX.Element {
             </>
           )}
         </div>
-        {status.files.map((file) => (
+        {status.files.length > 8 && (
+          <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)' }}>
+            <input
+              style={{ width: '100%' }}
+              placeholder="Filter changed files…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+        )}
+        {visibleFiles.map((file) => (
           <div
             key={file.path}
             className={`file-row ${props.selectedPath === file.path ? 'selected' : ''}`}
