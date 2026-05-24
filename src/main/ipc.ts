@@ -318,6 +318,35 @@ export function registerIpcHandlers(): void {
     })
   )
   ipcMain.handle(
+    'repo:create',
+    wrap(
+      async (params: {
+        parentDir: string
+        name: string
+        withReadme: boolean
+        publish: boolean
+        private: boolean
+        description?: string
+      }) => {
+        const dir = await git.initRepo(params.parentDir, params.name, params.withReadme)
+        if (params.publish) {
+          const gh = await github.createUserRepo(requireToken(), {
+            name: params.name,
+            private: params.private,
+            description: params.description
+          })
+          await git.addRemoteAndPush(dir, gh.cloneUrl)
+        }
+        const settings = loadSettings()
+        if (!settings.repos.some((r) => r.path === dir)) {
+          settings.repos.push({ name: git.repoName(dir), path: dir })
+          saveSettings(settings)
+        }
+        return { path: dir, name: git.repoName(dir) }
+      }
+    )
+  )
+  ipcMain.handle(
     'git:removeRepo',
     wrap(async (path: string) => {
       const settings = loadSettings()

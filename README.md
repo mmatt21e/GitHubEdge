@@ -6,16 +6,18 @@ Built with Electron + React + TypeScript.
 
 ## Features
 
-- Manage multiple repositories: add local repos, clone by URL, or clone from your GitHub account
-- Changes view: stage/unstage files, discard, view diffs, commit
+- Manage multiple repositories: create new, add local, clone by URL, or clone from your GitHub account
+- Repository actions: open in file explorer / terminal, view on GitHub, copy path
+- Changes view: stage/unstage, discard (single or all), syntax-highlighted diffs, commit, amend, and undo last commit
 - Push / pull / fetch with ahead-behind tracking
-- Branch list, switch, create, and **merge** with conflict resolution (use ours/theirs, open in editor, abort/continue)
-- Commit history with per-commit file diffs
+- Branch list, switch, create, rename, delete, and **merge** with an inline 3-way conflict editor (use ours/theirs/both or edit directly)
+- Commit history with syntax-highlighted per-commit file diffs
 - Stash save / pop / drop
-- **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, view/create/check out pull requests, profile display
+- **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, create a repo and publish it, and pull requests with CI checks, review conversation, create, and local checkout
 - **AI commit messages** streamed from your chosen model
 - Configure multiple AI providers
 - Secrets (GitHub token, provider API keys) are encrypted at rest with the OS secure-storage backend (Windows DPAPI / macOS Keychain / Linux libsecret) and never sent to the UI — saved keys show as "leave blank to keep"
+- Keyboard shortcuts: Ctrl/Cmd+Enter commit, F5 refresh, Ctrl/Cmd+, settings, Ctrl/Cmd+1/2/3 tabs, Esc closes dialogs
 
 ## GitHub sign-in
 

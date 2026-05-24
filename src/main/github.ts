@@ -208,6 +208,45 @@ export async function getPullRequestComments(
   return out
 }
 
+export async function createUserRepo(
+  token: string,
+  params: { name: string; private: boolean; description?: string }
+): Promise<GitHubRepo> {
+  const res = await fetch(`${API}/user/repos`, {
+    method: 'POST',
+    headers: { ...apiHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: params.name,
+      private: params.private,
+      description: params.description,
+      auto_init: false
+    })
+  })
+  const text = await res.text()
+  if (!res.ok) {
+    let msg = `${res.status} ${res.statusText}`
+    try {
+      const j = JSON.parse(text)
+      msg = j.errors?.[0]?.message || j.message || msg
+    } catch {
+      /* keep status */
+    }
+    throw new Error(`GitHub: ${msg}`)
+  }
+  const r = JSON.parse(text)
+  return {
+    fullName: r.full_name,
+    name: r.name,
+    owner: r.owner?.login ?? '',
+    description: r.description ?? undefined,
+    private: !!r.private,
+    cloneUrl: r.clone_url,
+    defaultBranch: r.default_branch,
+    updatedAt: r.updated_at,
+    htmlUrl: r.html_url
+  }
+}
+
 /** Parse a GitHub remote URL into owner/repo. Supports HTTPS and SSH forms. */
 export function parseGitHubRemote(url: string): { owner: string; repo: string } | null {
   const cleaned = url.trim().replace(/\/+$/, '').replace(/\.git$/, '')

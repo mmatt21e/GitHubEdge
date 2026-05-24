@@ -12,6 +12,7 @@ interface Props {
   notify: (message: string, error?: boolean) => void
   onSelectRepo: (repo: Repo) => void
   onAddLocal: () => void
+  onCreateRepo: () => void
   onClone: () => void
   onCloneFromGitHub: () => void
   onRemoveRepo: (repo: Repo) => void
@@ -107,6 +108,15 @@ export function Toolbar(props: Props): JSX.Element {
               </div>
             ))}
             <div className="dropdown-section">Add</div>
+            <div
+              className="dropdown-item"
+              onClick={() => {
+                props.onCreateRepo()
+                close()
+              }}
+            >
+              ✚ Create new repository…
+            </div>
             <div
               className="dropdown-item"
               onClick={() => {

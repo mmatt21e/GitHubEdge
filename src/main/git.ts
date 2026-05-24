@@ -1,7 +1,8 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { basename, dirname } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { join } from 'path'
 import type {
   Branch,
   Commit,
@@ -534,6 +535,41 @@ export async function clone(url: string, targetDir: string): Promise<string> {
   const name = basename(targetDir)
   await git(parent, ['clone', url, name], { authenticated: true })
   return targetDir
+}
+
+/** Initialize a new repository in parentDir/name, optionally with an initial commit. */
+export async function initRepo(
+  parentDir: string,
+  name: string,
+  withReadme: boolean
+): Promise<string> {
+  const dir = join(parentDir, name)
+  if (existsSync(dir)) throw new Error('A folder with that name already exists.')
+  mkdirSync(dir, { recursive: true })
+  await git(dir, ['init'])
+  // Prefer "main" as the default branch (safe before the first commit).
+  await git(dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']).catch(() => undefined)
+  if (withReadme) {
+    writeFileSync(join(dir, 'README.md'), `# ${name}\n`, 'utf-8')
+    writeFileSync(join(dir, '.gitignore'), 'node_modules\n.env\n', 'utf-8')
+    await git(dir, ['add', '.'])
+    await git(dir, ['commit', '-m', 'Initial commit'])
+  }
+  return dir
+}
+
+/** Add an origin remote and push the default branch if a commit exists. */
+export async function addRemoteAndPush(repoPath: string, remoteUrl: string): Promise<void> {
+  await git(repoPath, ['remote', 'add', 'origin', remoteUrl]).catch(async () => {
+    await git(repoPath, ['remote', 'set-url', 'origin', remoteUrl])
+  })
+  const hasCommit = await git(repoPath, ['rev-parse', '--verify', 'HEAD'])
+    .then(() => true)
+    .catch(() => false)
+  if (hasCommit) {
+    const branch = (await git(repoPath, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+    await git(repoPath, ['push', '-u', 'origin', branch], { authenticated: true })
+  }
 }
 
 /** Fetch a GitHub pull request into a local "pr/<number>" branch and check it out. */

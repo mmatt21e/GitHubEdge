@@ -26,6 +26,7 @@ import { PullRequestsView } from './components/PullRequestsView'
 import { PullRequestDetail } from './components/PullRequestDetail'
 import { CreatePRModal } from './components/CreatePRModal'
 import { ConflictEditor } from './components/ConflictEditor'
+import { NewRepoModal } from './components/NewRepoModal'
 
 type Tab = 'changes' | 'history' | 'pulls'
 
@@ -73,6 +74,7 @@ export default function App(): JSX.Element {
   const [showRepoBrowser, setShowRepoBrowser] = useState(false)
   const [showCreatePR, setShowCreatePR] = useState(false)
   const [conflictFile, setConflictFile] = useState<FileChange | null>(null)
+  const [showNewRepo, setShowNewRepo] = useState(false)
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -496,6 +498,25 @@ export default function App(): JSX.Element {
     notify(`Added "${res.data!.name}".`)
   }
 
+  async function createRepo(params: {
+    parentDir: string
+    name: string
+    withReadme: boolean
+    publish: boolean
+    private: boolean
+    description?: string
+  }): Promise<void> {
+    const res = await window.api.git.create(params)
+    if (!res.ok) {
+      notify(res.error!, true)
+      throw new Error(res.error)
+    }
+    await reloadSettings()
+    setCurrentRepo(res.data!)
+    setShowNewRepo(false)
+    notify(`Created "${res.data!.name}".`)
+  }
+
   async function clone(url: string, parentDir: string): Promise<void> {
     const sep = parentDir.includes('\\') ? '\\' : '/'
     const name = url
@@ -571,7 +592,13 @@ export default function App(): JSX.Element {
 
   const hasProvider = settings.providers.length > 0
   const anyModalOpen =
-    showSettings || showClone || showAccount || showRepoBrowser || showCreatePR || !!conflictFile
+    showSettings ||
+    showClone ||
+    showAccount ||
+    showRepoBrowser ||
+    showCreatePR ||
+    showNewRepo ||
+    !!conflictFile
 
   const stagedCount = status?.files.filter((f) => f.staged).length ?? 0
   const conflictCount = status?.files.filter((f) => f.status === 'conflicted').length ?? 0
@@ -594,6 +621,7 @@ export default function App(): JSX.Element {
           setShowAccount(false)
           setShowRepoBrowser(false)
           setShowCreatePR(false)
+          setShowNewRepo(false)
           setConflictFile(null)
         }
         return
@@ -648,6 +676,7 @@ export default function App(): JSX.Element {
         notify={notify}
         onSelectRepo={setCurrentRepo}
         onAddLocal={addLocal}
+        onCreateRepo={() => setShowNewRepo(true)}
         onClone={() => setShowClone(true)}
         onCloneFromGitHub={openRepoBrowser}
         onRemoveRepo={removeRepo}
@@ -666,7 +695,10 @@ export default function App(): JSX.Element {
           <h1>Welcome to GitHubEdge</h1>
           <p>A GitHub Desktop-style client with your own AI models built in.</p>
           <div className="actions">
-            <button className="btn-accent" onClick={addLocal}>
+            <button className="btn-accent" onClick={() => setShowNewRepo(true)}>
+              Create new repository
+            </button>
+            <button className="btn" onClick={addLocal}>
               Add local repository
             </button>
             <button className="btn" onClick={() => setShowClone(true)}>
@@ -833,6 +865,14 @@ export default function App(): JSX.Element {
           headBranch={status.branch}
           onClose={() => setShowCreatePR(false)}
           onCreate={createPull}
+        />
+      )}
+
+      {showNewRepo && (
+        <NewRepoModal
+          canPublish={!!account}
+          onClose={() => setShowNewRepo(false)}
+          onCreate={createRepo}
         />
       )}
 

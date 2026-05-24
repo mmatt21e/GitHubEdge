@@ -109,6 +109,14 @@ const api = {
       ipcRenderer.invoke('git:remoteUrl', path),
     clone: (url: string, dir: string): Promise<GitResult<Repo>> =>
       ipcRenderer.invoke('git:clone', url, dir),
+    create: (params: {
+      parentDir: string
+      name: string
+      withReadme: boolean
+      publish: boolean
+      private: boolean
+      description?: string
+    }): Promise<GitResult<Repo>> => ipcRenderer.invoke('repo:create', params),
     addRepo: (path: string): Promise<GitResult<Repo>> => ipcRenderer.invoke('git:addRepo', path),
     removeRepo: (path: string): Promise<GitResult<Repo[]>> =>
       ipcRenderer.invoke('git:removeRepo', path)
