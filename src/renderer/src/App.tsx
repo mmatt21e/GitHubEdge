@@ -5,6 +5,9 @@ import type {
   Commit,
   CommitFile,
   FileChange,
+  GitHubAccount,
+  GitHubRepo,
+  PullRequest,
   Repo,
   RepoStatus,
   Stash
@@ -17,8 +20,13 @@ import { DiffView } from './components/DiffView'
 import { CommitDetail } from './components/CommitDetail'
 import { SettingsModal } from './components/SettingsModal'
 import { CloneModal } from './components/CloneModal'
+import { AccountModal } from './components/AccountModal'
+import { RepoBrowserModal } from './components/RepoBrowserModal'
+import { PullRequestsView } from './components/PullRequestsView'
+import { PullRequestDetail } from './components/PullRequestDetail'
+import { CreatePRModal } from './components/CreatePRModal'
 
-type Tab = 'changes' | 'history'
+type Tab = 'changes' | 'history' | 'pulls'
 
 const EMPTY_SETTINGS: AppSettings = { repos: [], providers: [] }
 
@@ -48,9 +56,20 @@ export default function App(): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [merging, setMerging] = useState(false)
+
+  // GitHub state.
+  const [account, setAccount] = useState<GitHubAccount | null>(null)
+  const [isGitHubRepo, setIsGitHubRepo] = useState(false)
+  const [pulls, setPulls] = useState<PullRequest[]>([])
+  const [pullsLoading, setPullsLoading] = useState(false)
+  const [selectedPR, setSelectedPR] = useState<PullRequest | null>(null)
 
   const [showSettings, setShowSettings] = useState(false)
   const [showClone, setShowClone] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
+  const [showRepoBrowser, setShowRepoBrowser] = useState(false)
+  const [showCreatePR, setShowCreatePR] = useState(false)
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -64,6 +83,7 @@ export default function App(): JSX.Element {
   useEffect(() => {
     window.api.settings.get().then((s) => {
       setSettings(s)
+      setAccount(s.github?.account ?? null)
       if (s.repos.length > 0) setCurrentRepo(s.repos[0])
     })
   }, [])
@@ -71,16 +91,20 @@ export default function App(): JSX.Element {
   const refresh = useCallback(
     async (repo: Repo): Promise<void> => {
       try {
-        const [s, b, l, st] = await Promise.all([
+        const [s, b, l, st, m, remote] = await Promise.all([
           window.api.git.status(repo.path),
           window.api.git.branches(repo.path),
           window.api.git.log(repo.path, 100),
-          window.api.git.stashList(repo.path)
+          window.api.git.stashList(repo.path),
+          window.api.git.isMerging(repo.path),
+          window.api.git.remoteUrl(repo.path)
         ])
         setStatus(unwrap(s))
         setBranches(unwrap(b))
         setCommits(unwrap(l))
         setStashes(unwrap(st))
+        setMerging(unwrap(m))
+        setIsGitHubRepo(!!(remote.ok && remote.data && remote.data.includes('github.com')))
       } catch (err) {
         notify(err instanceof Error ? err.message : String(err), true)
       }
@@ -102,8 +126,26 @@ export default function App(): JSX.Element {
     setCommitFilePath(null)
     setCommitDiff(null)
     setDiff(null)
+    setSelectedPR(null)
+    setPulls([])
     refresh(currentRepo)
   }, [currentRepo, refresh])
+
+  const loadPulls = useCallback(async (): Promise<void> => {
+    if (!currentRepo) return
+    setPullsLoading(true)
+    const res = await window.api.github.pulls(currentRepo.path)
+    setPullsLoading(false)
+    if (!res.ok) return notify(res.error!, true)
+    setPulls(res.data!)
+  }, [currentRepo, notify])
+
+  // Load pull requests when the PR tab is opened for a signed-in GitHub repo.
+  useEffect(() => {
+    if (tab === 'pulls' && account && isGitHubRepo && currentRepo) {
+      loadPulls()
+    }
+  }, [tab, account, isGitHubRepo, currentRepo, loadPulls])
 
   const reloadSettings = useCallback(async (): Promise<AppSettings> => {
     const s = await window.api.settings.get()
@@ -115,6 +157,13 @@ export default function App(): JSX.Element {
     if (!currentRepo) return
     setSelectedPath(file.path)
     setDiffLoading(true)
+    if (file.status === 'conflicted') {
+      // Show the raw working file so conflict markers are visible.
+      const res = await window.api.git.fileContent(currentRepo.path, file.path)
+      setDiffLoading(false)
+      setDiff(res.ok ? res.data ?? '' : `Error: ${res.error}`)
+      return
+    }
     const showStaged = !file.unstaged
     const res = await window.api.git.diff(
       currentRepo.path,
@@ -188,15 +237,116 @@ export default function App(): JSX.Element {
       ? `${summary.trim()}\n\n${description.trim()}`
       : summary.trim()
     setBusy(true)
-    const res = await window.api.git.commit(currentRepo.path, message)
+    const res = merging
+      ? await window.api.git.mergeContinue(currentRepo.path, message || undefined)
+      : await window.api.git.commit(currentRepo.path, message)
     setBusy(false)
     if (!res.ok) return notify(res.error!, true)
     setSummary('')
     setDescription('')
     setSelectedPath(null)
     setDiff(null)
-    notify('Commit created.')
+    notify(merging ? 'Merge committed.' : 'Commit created.')
     await refresh(currentRepo)
+  }
+
+  // ---- Merge & conflicts ----
+  async function mergeBranch(name: string): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.merge(currentRepo.path, name)
+    if (!res.ok) return notify(res.error!, true)
+    await refresh(currentRepo)
+    if (res.data!.conflicted) {
+      setTab('changes')
+      setSelectedPath(null)
+      setDiff(null)
+      notify(`Merge has ${res.data!.conflicts.length} conflict(s). Resolve them, then commit.`, true)
+    } else {
+      notify(`Merged ${name}.`)
+    }
+  }
+
+  async function abortMerge(): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.mergeAbort(currentRepo.path)
+    if (!res.ok) return notify(res.error!, true)
+    setSelectedPath(null)
+    setDiff(null)
+    notify('Merge aborted.')
+    await refresh(currentRepo)
+  }
+
+  async function resolveConflict(file: FileChange, side: 'ours' | 'theirs'): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.resolve(currentRepo.path, file.path, side)
+    if (!res.ok) return notify(res.error!, true)
+    if (selectedPath === file.path) {
+      setSelectedPath(null)
+      setDiff(null)
+    }
+    await refresh(currentRepo)
+  }
+
+  async function openConflictFile(file: FileChange): Promise<void> {
+    if (!currentRepo) return
+    const sep = currentRepo.path.includes('\\') ? '\\' : '/'
+    await window.api.shell.openPath(`${currentRepo.path.replace(/[\\/]+$/, '')}${sep}${file.path}`)
+  }
+
+  // ---- GitHub ----
+  function onSignedIn(acc: GitHubAccount): void {
+    setAccount(acc)
+    reloadSettings()
+    setShowAccount(false)
+  }
+
+  function onSignedOut(): void {
+    setAccount(null)
+    setPulls([])
+    reloadSettings()
+  }
+
+  async function cloneFromGitHub(repo: GitHubRepo): Promise<void> {
+    const parentDir = await window.api.dialog.openDirectory()
+    if (!parentDir) return
+    const sep = parentDir.includes('\\') ? '\\' : '/'
+    const target = `${parentDir.replace(/[\\/]+$/, '')}${sep}${repo.name}`
+    const res = await window.api.git.clone(repo.cloneUrl, target)
+    if (!res.ok) {
+      notify(res.error!, true)
+      throw new Error(res.error)
+    }
+    await reloadSettings()
+    setCurrentRepo(res.data!)
+    setShowRepoBrowser(false)
+    notify(`Cloned "${res.data!.name}".`)
+  }
+
+  function openRepoBrowser(): void {
+    if (!account) {
+      setShowAccount(true)
+      notify('Sign in to GitHub to browse your repositories.', true)
+      return
+    }
+    setShowRepoBrowser(true)
+  }
+
+  async function createPull(params: {
+    title: string
+    base: string
+    body?: string
+    draft: boolean
+  }): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.github.createPull(currentRepo.path, params)
+    if (!res.ok) {
+      notify(res.error!, true)
+      throw new Error(res.error)
+    }
+    setShowCreatePR(false)
+    notify(`Created PR #${res.data!.number}.`)
+    setSelectedPR(res.data!)
+    await loadPulls()
   }
 
   async function generateMessage(): Promise<void> {
@@ -350,13 +500,17 @@ export default function App(): JSX.Element {
         status={status}
         branches={branches}
         syncing={syncing}
+        account={account}
         onSelectRepo={setCurrentRepo}
         onAddLocal={addLocal}
         onClone={() => setShowClone(true)}
+        onCloneFromGitHub={openRepoBrowser}
         onRemoveRepo={removeRepo}
         onCheckout={checkout}
         onCreateBranch={createBranch}
+        onMerge={mergeBranch}
         onSync={sync}
+        onOpenAccount={() => setShowAccount(true)}
         onOpenSettings={() => setShowSettings(true)}
       />
 
@@ -397,6 +551,12 @@ export default function App(): JSX.Element {
               >
                 History
               </button>
+              <button
+                className={`tab ${tab === 'pulls' ? 'active' : ''}`}
+                onClick={() => setTab('pulls')}
+              >
+                Pull Requests
+              </button>
             </div>
 
             {tab === 'changes' && status && (
@@ -407,6 +567,7 @@ export default function App(): JSX.Element {
                 busy={busy}
                 generating={generating}
                 hasProvider={hasProvider}
+                merging={merging}
                 summary={summary}
                 description={description}
                 onSummaryChange={setSummary}
@@ -420,6 +581,9 @@ export default function App(): JSX.Element {
                 onStash={stashChanges}
                 onStashPop={stashPop}
                 onStashDrop={stashDrop}
+                onAbortMerge={abortMerge}
+                onResolve={resolveConflict}
+                onOpenFile={openConflictFile}
               />
             )}
 
@@ -428,6 +592,20 @@ export default function App(): JSX.Element {
                 commits={commits}
                 selectedHash={selectedCommit?.hash ?? null}
                 onSelect={selectCommit}
+              />
+            )}
+
+            {tab === 'pulls' && (
+              <PullRequestsView
+                signedIn={!!account}
+                isGitHubRepo={isGitHubRepo}
+                pulls={pulls}
+                loading={pullsLoading}
+                selectedNumber={selectedPR?.number ?? null}
+                onSelect={setSelectedPR}
+                onCreate={() => setShowCreatePR(true)}
+                onRefresh={loadPulls}
+                onSignIn={() => setShowAccount(true)}
               />
             )}
           </div>
@@ -447,6 +625,12 @@ export default function App(): JSX.Element {
               ) : (
                 <div className="placeholder">Select a commit to view its changes.</div>
               ))}
+            {tab === 'pulls' &&
+              (selectedPR ? (
+                <PullRequestDetail pr={selectedPR} />
+              ) : (
+                <div className="placeholder">Select a pull request to view details.</div>
+              ))}
           </div>
         </div>
       )}
@@ -461,6 +645,32 @@ export default function App(): JSX.Element {
       )}
 
       {showClone && <CloneModal onClose={() => setShowClone(false)} onClone={clone} />}
+
+      {showAccount && (
+        <AccountModal
+          settings={settings}
+          onClose={() => setShowAccount(false)}
+          onSignedIn={onSignedIn}
+          onSignedOut={onSignedOut}
+          notify={notify}
+        />
+      )}
+
+      {showRepoBrowser && (
+        <RepoBrowserModal
+          onClose={() => setShowRepoBrowser(false)}
+          onClone={cloneFromGitHub}
+          notify={notify}
+        />
+      )}
+
+      {showCreatePR && status && (
+        <CreatePRModal
+          headBranch={status.branch}
+          onClose={() => setShowCreatePR(false)}
+          onCreate={createPull}
+        />
+      )}
 
       {toast && <div className={`toast ${toast.error ? 'error' : ''}`}>{toast.message}</div>}
     </div>

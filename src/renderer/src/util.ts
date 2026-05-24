@@ -26,6 +26,13 @@ export function statusLetter(status: FileChangeStatus): string {
 }
 
 export function diffLineClass(line: string): string {
+  if (
+    line.startsWith('<<<<<<<') ||
+    line.startsWith('=======') ||
+    line.startsWith('>>>>>>>') ||
+    line.startsWith('|||||||')
+  )
+    return 'diff-line conflict'
   if (line.startsWith('@@')) return 'diff-line hunk'
   if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') ||
       line.startsWith('index ') || line.startsWith('new file') || line.startsWith('deleted file') ||

@@ -4,15 +4,26 @@ A GitHub Desktop-style Git client for Windows with built-in support for **any LL
 local (Ollama) or paid (OpenAI / OpenAI-compatible, Anthropic, or a custom endpoint).
 Built with Electron + React + TypeScript.
 
-## Features (foundation)
+## Features
 
-- Manage multiple repositories: add local repos or clone by URL
+- Manage multiple repositories: add local repos, clone by URL, or clone from your GitHub account
 - Changes view: stage/unstage files, discard, view diffs, commit
 - Push / pull / fetch with ahead-behind tracking
-- Branch list, switch, and create
-- Commit history
-- **AI commit messages** generated from your staged diff using your chosen model
+- Branch list, switch, create, and **merge** with conflict resolution (use ours/theirs, open in editor, abort/continue)
+- Commit history with per-commit file diffs
+- Stash save / pop / drop
+- **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, view and create pull requests, profile display
+- **AI commit messages** streamed from your chosen model
 - Configure multiple AI providers; keys are stored locally only
+
+## GitHub sign-in
+
+Click the account button in the top-right and either:
+
+- **Paste a personal access token** (github.com → Settings → Developer settings → Tokens; needs `repo` scope), or
+- **Use OAuth device flow** — register a GitHub OAuth App with device flow enabled, paste its Client ID, then enter the shown code on github.com.
+
+The token is stored locally and used for HTTPS git operations and the GitHub API.
 
 ## Requirements
 

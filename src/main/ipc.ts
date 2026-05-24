@@ -1,6 +1,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import * as git from './git'
 import * as llm from './llm'
+import * as github from './github'
 import { loadSettings, saveSettings } from './store'
 import {
   type AppSettings,
@@ -9,6 +10,20 @@ import {
   type GitResult,
   DEFAULT_COMMIT_SYSTEM_PROMPT
 } from '@shared/types'
+
+function requireToken(): string {
+  const token = loadSettings().github?.token
+  if (!token) throw new Error('Not signed in to GitHub.')
+  return token
+}
+
+async function githubContext(repoPath: string): Promise<{ owner: string; repo: string }> {
+  const url = await git.getRemoteUrl(repoPath)
+  if (!url) throw new Error('This repository has no "origin" remote.')
+  const parsed = github.parseGitHubRemote(url)
+  if (!parsed) throw new Error('The origin remote is not a GitHub repository.')
+  return parsed
+}
 
 /** Wrap an async handler so errors become a structured GitResult instead of throwing. */
 function wrap<T>(fn: (...args: any[]) => Promise<T>) {
@@ -33,9 +48,16 @@ function activeProvider(settings: AppSettings): LLMProviderConfig {
 }
 
 export function registerIpcHandlers(): void {
+  // Apply any stored GitHub token to the git layer at startup.
+  git.setAuthToken(loadSettings().github?.token)
+
   // ---- Settings ----
   ipcMain.handle('settings:get', () => loadSettings())
-  ipcMain.handle('settings:save', (_e, settings: AppSettings) => saveSettings(settings))
+  ipcMain.handle('settings:save', (_e, settings: AppSettings) => {
+    const saved = saveSettings(settings)
+    git.setAuthToken(saved.github?.token)
+    return saved
+  })
 
   // ---- Dialogs ----
   ipcMain.handle('dialog:openDirectory', async (e) => {
@@ -81,6 +103,97 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:stashPop', wrap((path: string, ref: string) => git.stashPop(path, ref)))
   ipcMain.handle('git:stashApply', wrap((path: string, ref: string) => git.stashApply(path, ref)))
   ipcMain.handle('git:stashDrop', wrap((path: string, ref: string) => git.stashDrop(path, ref)))
+
+  // ---- Merge & conflicts ----
+  ipcMain.handle('git:merge', wrap((path: string, branch: string) => git.merge(path, branch)))
+  ipcMain.handle('git:mergeAbort', wrap((path: string) => git.abortMerge(path)))
+  ipcMain.handle('git:mergeContinue', wrap((path: string, message?: string) => git.continueMerge(path, message)))
+  ipcMain.handle('git:isMerging', wrap((path: string) => git.isMerging(path)))
+  ipcMain.handle(
+    'git:resolve',
+    wrap((path: string, file: string, side: 'ours' | 'theirs') => git.resolveUsing(path, file, side))
+  )
+  ipcMain.handle('git:fileContent', wrap((path: string, file: string) => git.readWorkingFile(path, file)))
+  ipcMain.handle('git:remoteUrl', wrap((path: string) => git.getRemoteUrl(path)))
+
+  // ---- GitHub ----
+  ipcMain.handle(
+    'github:signIn',
+    wrap(async (token: string) => {
+      const account = await github.getAuthenticatedUser(token)
+      const settings = loadSettings()
+      settings.github = { ...settings.github, token, account }
+      saveSettings(settings)
+      git.setAuthToken(token)
+      return account
+    })
+  )
+  ipcMain.handle(
+    'github:signOut',
+    wrap(async () => {
+      const settings = loadSettings()
+      settings.github = { ...settings.github, token: undefined, account: undefined }
+      saveSettings(settings)
+      git.setAuthToken(undefined)
+    })
+  )
+  ipcMain.handle(
+    'github:saveClientId',
+    wrap(async (clientId: string) => {
+      const settings = loadSettings()
+      settings.github = { ...settings.github, oauthClientId: clientId }
+      saveSettings(settings)
+    })
+  )
+  ipcMain.handle(
+    'github:deviceStart',
+    wrap(async () => {
+      const clientId = loadSettings().github?.oauthClientId
+      if (!clientId) throw new Error('Enter an OAuth App Client ID first.')
+      return github.deviceFlowStart(clientId)
+    })
+  )
+  ipcMain.handle(
+    'github:devicePoll',
+    wrap(async (deviceCode: string, interval: number, expiresIn: number) => {
+      const clientId = loadSettings().github?.oauthClientId
+      if (!clientId) throw new Error('Missing OAuth App Client ID.')
+      const token = await github.deviceFlowPoll(clientId, deviceCode, interval, expiresIn)
+      const account = await github.getAuthenticatedUser(token)
+      const settings = loadSettings()
+      settings.github = { ...settings.github, token, account }
+      saveSettings(settings)
+      git.setAuthToken(token)
+      return account
+    })
+  )
+  ipcMain.handle('github:repos', wrap(() => github.listUserRepos(requireToken())))
+  ipcMain.handle(
+    'github:pulls',
+    wrap(async (repoPath: string) => {
+      const { owner, repo } = await githubContext(repoPath)
+      return github.listPullRequests(requireToken(), owner, repo)
+    })
+  )
+  ipcMain.handle(
+    'github:createPull',
+    wrap(
+      async (
+        repoPath: string,
+        params: { title: string; base: string; body?: string; draft?: boolean }
+      ) => {
+        const { owner, repo } = await githubContext(repoPath)
+        const status = await git.getStatus(repoPath)
+        return github.createPullRequest(requireToken(), owner, repo, {
+          title: params.title,
+          head: status.branch,
+          base: params.base,
+          body: params.body,
+          draft: params.draft
+        })
+      }
+    )
+  )
   ipcMain.handle(
     'git:clone',
     wrap(async (url: string, dir: string) => {

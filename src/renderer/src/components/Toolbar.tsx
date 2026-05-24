@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Branch, Repo, RepoStatus } from '@shared/types'
+import type { Branch, GitHubAccount, Repo, RepoStatus } from '@shared/types'
 
 interface Props {
   currentRepo: Repo | null
@@ -7,13 +7,17 @@ interface Props {
   status: RepoStatus | null
   branches: Branch[]
   syncing: boolean
+  account: GitHubAccount | null
   onSelectRepo: (repo: Repo) => void
   onAddLocal: () => void
   onClone: () => void
+  onCloneFromGitHub: () => void
   onRemoveRepo: (repo: Repo) => void
   onCheckout: (name: string) => void
   onCreateBranch: (name: string) => void
+  onMerge: (name: string) => void
   onSync: () => void
+  onOpenAccount: () => void
   onOpenSettings: () => void
 }
 
@@ -100,6 +104,15 @@ export function Toolbar(props: Props): JSX.Element {
             >
               ⬇ Clone repository…
             </div>
+            <div
+              className="dropdown-item"
+              onClick={() => {
+                props.onCloneFromGitHub()
+                close()
+              }}
+            >
+              ⬇ Clone from GitHub…
+            </div>
           </div>
         )}
       </div>
@@ -127,7 +140,21 @@ export function Toolbar(props: Props): JSX.Element {
                 }}
               >
                 <span>{b.name}</span>
-                {b.current && <span className="muted">current</span>}
+                {b.current ? (
+                  <span className="muted">current</span>
+                ) : (
+                  <button
+                    className="btn-ghost"
+                    title={`Merge ${b.name} into ${status?.branch}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      props.onMerge(b.name)
+                      close()
+                    }}
+                  >
+                    Merge
+                  </button>
+                )}
               </div>
             ))}
             <div className="dropdown-section">New branch</div>
@@ -169,6 +196,21 @@ export function Toolbar(props: Props): JSX.Element {
       >
         <span>{props.syncing ? '…' : sync.main}</span>
         <span className="sub">{sync.sub}</span>
+      </button>
+
+      <button className="toolbar-action" onClick={props.onOpenAccount} title="GitHub account">
+        {props.account?.avatarUrl ? (
+          <img
+            src={props.account.avatarUrl}
+            width={20}
+            height={20}
+            style={{ borderRadius: '50%' }}
+            alt=""
+          />
+        ) : (
+          <span>◔</span>
+        )}
+        <span className="sub">{props.account ? props.account.login : 'Sign in'}</span>
       </button>
 
       <button className="toolbar-action" onClick={props.onOpenSettings} title="Settings">

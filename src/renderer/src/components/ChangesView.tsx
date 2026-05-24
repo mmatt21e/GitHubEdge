@@ -9,6 +9,7 @@ interface Props {
   busy: boolean
   generating: boolean
   hasProvider: boolean
+  merging: boolean
   summary: string
   description: string
   onSummaryChange: (v: string) => void
@@ -22,6 +23,9 @@ interface Props {
   onStash: () => void
   onStashPop: (stash: Stash) => void
   onStashDrop: (stash: Stash) => void
+  onAbortMerge: () => void
+  onResolve: (file: FileChange, side: 'ours' | 'theirs') => void
+  onOpenFile: (file: FileChange) => void
 }
 
 export function ChangesView(props: Props): JSX.Element {
@@ -29,9 +33,25 @@ export function ChangesView(props: Props): JSX.Element {
   const [hover, setHover] = useState<string | null>(null)
   const allStaged = status.files.length > 0 && status.files.every((f) => f.staged)
   const stagedCount = status.files.filter((f) => f.staged).length
+  const conflictCount = status.files.filter((f) => f.status === 'conflicted').length
 
   return (
     <>
+      {props.merging && (
+        <div className="merge-banner">
+          <div>
+            <strong>Resolving merge</strong>
+            <div className="muted" style={{ fontSize: 11 }}>
+              {conflictCount > 0
+                ? `${conflictCount} conflict${conflictCount === 1 ? '' : 's'} to resolve`
+                : 'All conflicts resolved — commit to finish'}
+            </div>
+          </div>
+          <button className="btn" onClick={props.onAbortMerge}>
+            Abort
+          </button>
+        </div>
+      )}
       <div className="file-list">
         <div className="file-list-header">
           <input
@@ -60,33 +80,52 @@ export function ChangesView(props: Props): JSX.Element {
             onMouseEnter={() => setHover(file.path)}
             onMouseLeave={() => setHover(null)}
           >
-            <input
-              type="checkbox"
-              checked={file.staged}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => props.onToggleFile(file, e.target.checked)}
-            />
+            {file.status === 'conflicted' ? (
+              <span className="status-badge status-conflicted" title="conflicted">
+                !
+              </span>
+            ) : (
+              <input
+                type="checkbox"
+                checked={file.staged}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => props.onToggleFile(file, e.target.checked)}
+              />
+            )}
             <span className="path" title={file.path}>
               {file.path}
             </span>
-            {hover === file.path && (
-              <button
-                className="btn-ghost"
-                title="Discard changes"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  props.onDiscard(file)
-                }}
-              >
-                ✕
-              </button>
+            {file.status === 'conflicted' ? (
+              <span className="flex" style={{ gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                <button className="btn-ghost" title="Keep our version" onClick={() => props.onResolve(file, 'ours')}>
+                  Ours
+                </button>
+                <button className="btn-ghost" title="Keep their version" onClick={() => props.onResolve(file, 'theirs')}>
+                  Theirs
+                </button>
+                <button className="btn-ghost" title="Open in editor" onClick={() => props.onOpenFile(file)}>
+                  Edit
+                </button>
+              </span>
+            ) : (
+              <>
+                {hover === file.path && (
+                  <button
+                    className="btn-ghost"
+                    title="Discard changes"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      props.onDiscard(file)
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <span className={`status-badge status-${file.status}`} title={file.status}>
+                  {statusLetter(file.status)}
+                </span>
+              </>
             )}
-            <span
-              className={`status-badge status-${file.status}`}
-              title={file.status}
-            >
-              {statusLetter(file.status)}
-            </span>
           </div>
         ))}
         {status.files.length === 0 && (
@@ -146,10 +185,21 @@ export function ChangesView(props: Props): JSX.Element {
           </button>
           <button
             className="btn-primary"
-            disabled={props.busy || stagedCount === 0 || !props.summary.trim()}
+            disabled={
+              props.busy ||
+              (props.merging
+                ? conflictCount > 0
+                : stagedCount === 0 || !props.summary.trim())
+            }
             onClick={props.onCommit}
           >
-            {props.busy ? <span className="spinner" /> : `Commit to ${status.branch}`}
+            {props.busy ? (
+              <span className="spinner" />
+            ) : props.merging ? (
+              'Commit merge'
+            ) : (
+              `Commit to ${status.branch}`
+            )}
           </button>
         </div>
       </div>

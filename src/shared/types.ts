@@ -87,6 +87,61 @@ export interface AppSettings {
   activeProviderId?: string
   /** Optional override for the system prompt used to write commit messages. */
   commitSystemPrompt?: string
+  github?: GitHubSettings
+}
+
+export interface GitHubSettings {
+  token?: string
+  /** OAuth App Client ID, required for device-flow sign-in. */
+  oauthClientId?: string
+  account?: GitHubAccount
+}
+
+export interface GitHubAccount {
+  login: string
+  name?: string
+  avatarUrl?: string
+  htmlUrl: string
+}
+
+export interface GitHubRepo {
+  fullName: string
+  name: string
+  owner: string
+  description?: string
+  private: boolean
+  cloneUrl: string
+  defaultBranch: string
+  updatedAt: string
+  htmlUrl: string
+}
+
+export interface PullRequest {
+  number: number
+  title: string
+  state: string
+  draft: boolean
+  author: string
+  headRef: string
+  baseRef: string
+  htmlUrl: string
+  createdAt: string
+  body?: string
+}
+
+export interface DeviceCode {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  interval: number
+  expiresIn: number
+}
+
+/** Result of a merge attempt. */
+export interface MergeResult {
+  conflicted: boolean
+  /** Files left in a conflicted state, when conflicted. */
+  conflicts: string[]
 }
 
 export interface ChatMessage {

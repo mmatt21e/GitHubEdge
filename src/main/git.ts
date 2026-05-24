@@ -8,6 +8,7 @@ import type {
   CommitFile,
   FileChange,
   FileChangeStatus,
+  MergeResult,
   RepoStatus,
   Stash
 } from '@shared/types'
@@ -16,13 +17,36 @@ const execFileAsync = promisify(execFile)
 
 const MAX_BUFFER = 1024 * 1024 * 100 // 100 MB for large diffs/logs
 
+/** GitHub token used to authenticate HTTPS network operations. */
+let authToken: string | undefined
+
+export function setAuthToken(token: string | undefined): void {
+  authToken = token && token.trim() ? token.trim() : undefined
+}
+
+// Inline credential helper that feeds the token to git without persisting it.
+// The token itself is passed via the GHE_TOKEN env var so it never appears in argv.
+const CREDENTIAL_HELPER =
+  '!f() { echo username=x-access-token; echo "password=$GHE_TOKEN"; }; f'
+
 /** Run a git command in `cwd` and return stdout. Throws with stderr on failure. */
-async function git(cwd: string, args: string[]): Promise<string> {
+async function git(
+  cwd: string,
+  args: string[],
+  opts: { authenticated?: boolean } = {}
+): Promise<string> {
+  let finalArgs = args
+  let env = process.env
+  if (opts.authenticated && authToken) {
+    finalArgs = ['-c', 'credential.helper=', '-c', `credential.helper=${CREDENTIAL_HELPER}`, ...args]
+    env = { ...process.env, GHE_TOKEN: authToken }
+  }
   try {
-    const { stdout } = await execFileAsync('git', args, {
+    const { stdout } = await execFileAsync('git', finalArgs, {
       cwd,
       maxBuffer: MAX_BUFFER,
-      windowsHide: true
+      windowsHide: true,
+      env
     })
     return stdout
   } catch (err) {
@@ -178,21 +202,93 @@ export async function commit(repoPath: string, message: string): Promise<void> {
 export async function push(repoPath: string): Promise<void> {
   const status = await getStatus(repoPath)
   if (status.upstream) {
-    await git(repoPath, ['push'])
+    await git(repoPath, ['push'], { authenticated: true })
   } else {
     // No upstream configured: push and set it.
-    await git(repoPath, ['push', '--set-upstream', 'origin', status.branch])
+    await git(repoPath, ['push', '--set-upstream', 'origin', status.branch], {
+      authenticated: true
+    })
   }
 }
 
 export async function pull(repoPath: string): Promise<void> {
-  await git(repoPath, ['pull', '--ff-only']).catch(async () => {
-    await git(repoPath, ['pull'])
+  await git(repoPath, ['pull', '--ff-only'], { authenticated: true }).catch(async () => {
+    await git(repoPath, ['pull'], { authenticated: true })
   })
 }
 
 export async function fetch(repoPath: string): Promise<void> {
-  await git(repoPath, ['fetch', '--all', '--prune'])
+  await git(repoPath, ['fetch', '--all', '--prune'], { authenticated: true })
+}
+
+export async function getRemoteUrl(repoPath: string): Promise<string | undefined> {
+  const out = await git(repoPath, ['remote', 'get-url', 'origin']).catch(() => '')
+  return out.trim() || undefined
+}
+
+// ---- Merge & conflict resolution ----
+
+export async function isMerging(repoPath: string): Promise<boolean> {
+  try {
+    await git(repoPath, ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD'])
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function conflictedFiles(repoPath: string): Promise<string[]> {
+  const out = await git(repoPath, ['diff', '--name-only', '--diff-filter=U', '-z']).catch(
+    () => ''
+  )
+  return out.split('\0').filter(Boolean)
+}
+
+export async function merge(repoPath: string, branch: string): Promise<MergeResult> {
+  try {
+    await git(repoPath, ['merge', '--no-edit', branch], { authenticated: true })
+    return { conflicted: false, conflicts: [] }
+  } catch (err) {
+    if (await isMerging(repoPath)) {
+      return { conflicted: true, conflicts: await conflictedFiles(repoPath) }
+    }
+    throw err
+  }
+}
+
+export async function abortMerge(repoPath: string): Promise<void> {
+  await git(repoPath, ['merge', '--abort'])
+}
+
+export async function continueMerge(repoPath: string, message?: string): Promise<void> {
+  const remaining = await conflictedFiles(repoPath)
+  if (remaining.length > 0) {
+    throw new Error(`Resolve all conflicts first (${remaining.length} remaining).`)
+  }
+  if (message && message.trim()) {
+    await git(repoPath, ['commit', '-m', message.trim()])
+  } else {
+    await git(repoPath, ['commit', '--no-edit'])
+  }
+}
+
+export async function resolveUsing(
+  repoPath: string,
+  filePath: string,
+  side: 'ours' | 'theirs'
+): Promise<void> {
+  await git(repoPath, ['checkout', `--${side}`, '--', filePath])
+  await git(repoPath, ['add', '--', filePath])
+}
+
+/** Raw working-tree contents of a file (used to show conflict markers). */
+export async function readWorkingFile(repoPath: string, filePath: string): Promise<string> {
+  const full = `${repoPath.replace(/[\\/]+$/, '')}/${filePath}`
+  try {
+    return readFileSync(full, 'utf-8')
+  } catch {
+    return '(binary or unreadable file)'
+  }
 }
 
 export async function listBranches(repoPath: string): Promise<Branch[]> {
@@ -390,7 +486,7 @@ export async function stashDrop(repoPath: string, ref: string): Promise<void> {
 export async function clone(url: string, targetDir: string): Promise<string> {
   const parent = dirname(targetDir)
   const name = basename(targetDir)
-  await git(parent, ['clone', url, name])
+  await git(parent, ['clone', url, name], { authenticated: true })
   return targetDir
 }
 

@@ -5,8 +5,13 @@ import type {
   ChatMessage,
   Commit,
   CommitFile,
+  DeviceCode,
+  GitHubAccount,
+  GitHubRepo,
   GitResult,
   LLMProviderConfig,
+  MergeResult,
+  PullRequest,
   Repo,
   RepoStatus,
   Stash
@@ -68,6 +73,19 @@ const api = {
       ipcRenderer.invoke('git:stashApply', path, ref),
     stashDrop: (path: string, ref: string): Promise<GitResult> =>
       ipcRenderer.invoke('git:stashDrop', path, ref),
+    merge: (path: string, branch: string): Promise<GitResult<MergeResult>> =>
+      ipcRenderer.invoke('git:merge', path, branch),
+    mergeAbort: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:mergeAbort', path),
+    mergeContinue: (path: string, message?: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:mergeContinue', path, message),
+    isMerging: (path: string): Promise<GitResult<boolean>> =>
+      ipcRenderer.invoke('git:isMerging', path),
+    resolve: (path: string, file: string, side: 'ours' | 'theirs'): Promise<GitResult> =>
+      ipcRenderer.invoke('git:resolve', path, file, side),
+    fileContent: (path: string, file: string): Promise<GitResult<string>> =>
+      ipcRenderer.invoke('git:fileContent', path, file),
+    remoteUrl: (path: string): Promise<GitResult<string | undefined>> =>
+      ipcRenderer.invoke('git:remoteUrl', path),
     clone: (url: string, dir: string): Promise<GitResult<Repo>> =>
       ipcRenderer.invoke('git:clone', url, dir),
     addRepo: (path: string): Promise<GitResult<Repo>> => ipcRenderer.invoke('git:addRepo', path),
@@ -95,6 +113,28 @@ const api = {
         .invoke('llm:generateCommitMessageStream', requestId, repoPath)
         .finally(() => ipcRenderer.removeListener(channel, listener))
     }
+  },
+  github: {
+    signIn: (token: string): Promise<GitResult<GitHubAccount>> =>
+      ipcRenderer.invoke('github:signIn', token),
+    signOut: (): Promise<GitResult> => ipcRenderer.invoke('github:signOut'),
+    saveClientId: (clientId: string): Promise<GitResult> =>
+      ipcRenderer.invoke('github:saveClientId', clientId),
+    deviceStart: (): Promise<GitResult<DeviceCode>> => ipcRenderer.invoke('github:deviceStart'),
+    devicePoll: (
+      deviceCode: string,
+      interval: number,
+      expiresIn: number
+    ): Promise<GitResult<GitHubAccount>> =>
+      ipcRenderer.invoke('github:devicePoll', deviceCode, interval, expiresIn),
+    repos: (): Promise<GitResult<GitHubRepo[]>> => ipcRenderer.invoke('github:repos'),
+    pulls: (repoPath: string): Promise<GitResult<PullRequest[]>> =>
+      ipcRenderer.invoke('github:pulls', repoPath),
+    createPull: (
+      repoPath: string,
+      params: { title: string; base: string; body?: string; draft?: boolean }
+    ): Promise<GitResult<PullRequest>> =>
+      ipcRenderer.invoke('github:createPull', repoPath, params)
   }
 }
 
