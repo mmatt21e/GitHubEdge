@@ -195,6 +195,37 @@ export default function App(): JSX.Element {
     setCommitDiff(res.ok ? res.data ?? '' : `Error: ${res.error}`)
   }
 
+  async function createTag(name: string): Promise<void> {
+    if (!currentRepo || !selectedCommit) return
+    const res = await window.api.git.tagCreate(currentRepo.path, name, selectedCommit.hash)
+    if (!res.ok) return notify(res.error!, true)
+    notify(`Created tag ${name}.`)
+    await refresh(currentRepo)
+  }
+
+  async function deleteTag(name: string): Promise<void> {
+    if (!currentRepo) return
+    if (!confirm(`Delete tag "${name}"?`)) return
+    const res = await window.api.git.tagDelete(currentRepo.path, name)
+    if (!res.ok) return notify(res.error!, true)
+    notify(`Deleted tag ${name}.`)
+    await refresh(currentRepo)
+  }
+
+  async function pushTags(): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.tagsPush(currentRepo.path)
+    if (!res.ok) return notify(res.error!, true)
+    notify('Pushed tags to origin.')
+  }
+
+  async function viewCommitOnGitHub(hash: string): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.github.webUrl(currentRepo.path)
+    if (res.ok && res.data) window.api.shell.openExternal(`${res.data}/commit/${hash}`)
+    else notify('Could not determine the GitHub URL.', true)
+  }
+
   async function selectCommit(commit: Commit): Promise<void> {
     if (!currentRepo) return
     setSelectedCommit(commit)
@@ -812,12 +843,18 @@ export default function App(): JSX.Element {
             {tab === 'history' &&
               (selectedCommit ? (
                 <CommitDetail
-                  commit={selectedCommit}
+                  commit={commits.find((c) => c.hash === selectedCommit.hash) ?? selectedCommit}
                   files={commitFiles}
                   selectedPath={commitFilePath}
                   diff={commitDiff}
                   diffLoading={commitDiffLoading}
+                  isGitHubRepo={isGitHubRepo}
                   onSelectFile={(f) => loadCommitFileDiff(selectedCommit, f)}
+                  onCreateTag={createTag}
+                  onDeleteTag={deleteTag}
+                  onPushTags={pushTags}
+                  onViewOnGitHub={viewCommitOnGitHub}
+                  notify={notify}
                 />
               ) : (
                 <div className="placeholder">Select a commit to view its changes.</div>

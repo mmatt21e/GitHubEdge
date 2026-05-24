@@ -158,6 +158,14 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('git:log', wrap((path: string, limit?: number) => git.log(path, limit)))
   ipcMain.handle(
+    'git:tagCreate',
+    wrap((path: string, name: string, ref?: string, message?: string) =>
+      git.createTag(path, name, ref, message)
+    )
+  )
+  ipcMain.handle('git:tagDelete', wrap((path: string, name: string) => git.deleteTag(path, name)))
+  ipcMain.handle('git:tagsPush', wrap((path: string) => git.pushTags(path)))
+  ipcMain.handle(
     'git:diff',
     wrap((path: string, file: string, staged: boolean, untracked: boolean) =>
       git.getDiff(path, file, staged, untracked)

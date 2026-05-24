@@ -68,6 +68,11 @@ const api = {
       ipcRenderer.invoke('git:renameBranch', path, oldName, newName),
     log: (path: string, limit?: number): Promise<GitResult<Commit[]>> =>
       ipcRenderer.invoke('git:log', path, limit),
+    tagCreate: (path: string, name: string, ref?: string, message?: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:tagCreate', path, name, ref, message),
+    tagDelete: (path: string, name: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:tagDelete', path, name),
+    tagsPush: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:tagsPush', path),
     diff: (
       path: string,
       file: string,

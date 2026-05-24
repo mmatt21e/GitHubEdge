@@ -688,6 +688,13 @@ select:focus {
   margin-right: 5px;
   vertical-align: middle;
 }
+.tag-x {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  padding: 0 0 0 4px;
+  font-size: 10px;
+}
 .commit-row .meta {
   font-size: 11px;
   color: var(--text-muted);

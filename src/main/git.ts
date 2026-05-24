@@ -385,6 +385,7 @@ export async function log(repoPath: string, limit = 100): Promise<Commit[]> {
     `--max-count=${limit}`,
     `--pretty=format:${format}`
   ]).catch(() => '')
+  const tagMap = await getTagMap(repoPath)
   const commits: Commit[] = []
   for (const record of out.split('\x1e')) {
     const trimmed = record.replace(/^\n/, '')
@@ -396,10 +397,48 @@ export async function log(repoPath: string, limit = 100): Promise<Commit[]> {
       author,
       email,
       date: parseInt(date, 10),
-      subject
+      subject,
+      tags: tagMap[hash]
     })
   }
   return commits
+}
+
+async function getTagMap(repoPath: string): Promise<Record<string, string[]>> {
+  const out = await git(repoPath, [
+    'for-each-ref',
+    '--format=%(refname:short)%x1f%(objectname)%x1f%(*objectname)',
+    'refs/tags'
+  ]).catch(() => '')
+  const map: Record<string, string[]> = {}
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    const [name, obj, deref] = line.split('\x1f')
+    const sha = deref || obj // annotated tags resolve via *objectname
+    ;(map[sha] ??= []).push(name)
+  }
+  return map
+}
+
+export async function createTag(
+  repoPath: string,
+  name: string,
+  ref?: string,
+  message?: string
+): Promise<void> {
+  const args = ['tag']
+  if (message && message.trim()) args.push('-a', '-m', message.trim())
+  args.push(name)
+  if (ref) args.push(ref)
+  await git(repoPath, args)
+}
+
+export async function deleteTag(repoPath: string, name: string): Promise<void> {
+  await git(repoPath, ['tag', '-d', name])
+}
+
+export async function pushTags(repoPath: string): Promise<void> {
+  await git(repoPath, ['push', 'origin', '--tags'], { authenticated: true })
 }
 
 /** Returns a unified diff for a file. Falls back to file contents for untracked files. */
