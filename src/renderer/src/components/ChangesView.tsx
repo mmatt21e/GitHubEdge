@@ -26,6 +26,7 @@ interface Props {
   onToggleAmend: (on: boolean) => void
   onUndoLast: () => void
   onStash: () => void
+  onDiscardAll: () => void
   onStashPop: (stash: Stash) => void
   onStashDrop: (stash: Stash) => void
   onAbortMerge: () => void
@@ -72,9 +73,18 @@ export function ChangesView(props: Props): JSX.Element {
             {status.files.length} changed file{status.files.length === 1 ? '' : 's'}
           </span>
           {status.files.length > 0 && (
-            <button className="btn-ghost" title="Stash all changes" onClick={props.onStash}>
-              Stash
-            </button>
+            <>
+              <button className="btn-ghost" title="Stash all changes" onClick={props.onStash}>
+                Stash
+              </button>
+              <button
+                className="btn-ghost"
+                title="Discard all changes"
+                onClick={props.onDiscardAll}
+              >
+                Discard all
+              </button>
+            </>
           )}
         </div>
         {status.files.map((file) => (

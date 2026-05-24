@@ -235,6 +235,25 @@ export default function App(): JSX.Element {
     await refresh(currentRepo)
   }
 
+  async function discardAll(): Promise<void> {
+    if (!currentRepo || !status || status.files.length === 0) return
+    if (
+      !confirm(
+        `Discard all changes to ${status.files.length} file(s)? This cannot be undone.`
+      )
+    )
+      return
+    const res = await window.api.git.discard(
+      currentRepo.path,
+      status.files.map((f) => f.path)
+    )
+    if (!res.ok) return notify(res.error!, true)
+    setSelectedPath(null)
+    setDiff(null)
+    notify('Discarded all changes.')
+    await refresh(currentRepo)
+  }
+
   async function doCommit(): Promise<void> {
     if (!currentRepo) return
     const message = description.trim()
@@ -551,6 +570,66 @@ export default function App(): JSX.Element {
   }
 
   const hasProvider = settings.providers.length > 0
+  const anyModalOpen =
+    showSettings || showClone || showAccount || showRepoBrowser || showCreatePR || !!conflictFile
+
+  const stagedCount = status?.files.filter((f) => f.staged).length ?? 0
+  const conflictCount = status?.files.filter((f) => f.status === 'conflicted').length ?? 0
+  const canCommit =
+    !!status &&
+    !busy &&
+    (merging
+      ? conflictCount === 0
+      : amendMode
+        ? !!summary.trim()
+        : stagedCount > 0 && !!summary.trim())
+
+  // Keyboard shortcuts.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === 'Escape') {
+        if (anyModalOpen) {
+          setShowSettings(false)
+          setShowClone(false)
+          setShowAccount(false)
+          setShowRepoBrowser(false)
+          setShowCreatePR(false)
+          setConflictFile(null)
+        }
+        return
+      }
+      // F5 refreshes (Ctrl+R is left to the platform's reload to avoid clashes).
+      if (e.key === 'F5') {
+        e.preventDefault()
+        if (currentRepo) refresh(currentRepo)
+        return
+      }
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      if (e.key === 'Enter') {
+        if (tab === 'changes' && canCommit) {
+          e.preventDefault()
+          doCommit()
+        }
+      } else if (e.key === ',') {
+        e.preventDefault()
+        setShowSettings(true)
+      } else if (e.key === '1') {
+        e.preventDefault()
+        setTab('changes')
+      } else if (e.key === '2') {
+        e.preventDefault()
+        setTab('history')
+      } else if (e.key === '3') {
+        e.preventDefault()
+        setTab('pulls')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyModalOpen, tab, canCommit, currentRepo, summary, description, merging, amendMode])
+
   const selectedFile = status?.files.find((f) => f.path === selectedPath) ?? null
   const diffTitle = selectedFile
     ? `${selectedFile.path}${selectedFile.unstaged ? '' : ' (staged)'}`
@@ -652,6 +731,7 @@ export default function App(): JSX.Element {
                 onToggleAmend={toggleAmend}
                 onUndoLast={undoLastCommit}
                 onStash={stashChanges}
+                onDiscardAll={discardAll}
                 onStashPop={stashPop}
                 onStashDrop={stashDrop}
                 onAbortMerge={abortMerge}
