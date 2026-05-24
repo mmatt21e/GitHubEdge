@@ -10,6 +10,9 @@ interface Props {
   generating: boolean
   hasProvider: boolean
   merging: boolean
+  canAmend: boolean
+  amendMode: boolean
+  lastCommitSubject?: string
   summary: string
   description: string
   onSummaryChange: (v: string) => void
@@ -20,6 +23,8 @@ interface Props {
   onDiscard: (file: FileChange) => void
   onCommit: () => void
   onGenerate: () => void
+  onToggleAmend: (on: boolean) => void
+  onUndoLast: () => void
   onStash: () => void
   onStashPop: (stash: Stash) => void
   onStashDrop: (stash: Stash) => void
@@ -164,8 +169,35 @@ export function ChangesView(props: Props): JSX.Element {
       )}
 
       <div className="commit-box">
+        {props.canAmend && !props.merging && (
+          <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <label className="flex gap" style={{ alignItems: 'center', fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={props.amendMode}
+                onChange={(e) => props.onToggleAmend(e.target.checked)}
+              />
+              Amend last commit
+            </label>
+            {!props.amendMode && props.lastCommitSubject && (
+              <button
+                className="btn-ghost"
+                title="Undo the last commit, keeping its changes staged"
+                onClick={props.onUndoLast}
+              >
+                ↩ Undo
+              </button>
+            )}
+          </div>
+        )}
         <input
-          placeholder={stagedCount > 0 ? 'Summary (required)' : 'Stage files to commit'}
+          placeholder={
+            props.amendMode
+              ? 'Amend summary'
+              : stagedCount > 0
+                ? 'Summary (required)'
+                : 'Stage files to commit'
+          }
           value={props.summary}
           onChange={(e) => props.onSummaryChange(e.target.value)}
         />
@@ -193,7 +225,9 @@ export function ChangesView(props: Props): JSX.Element {
               props.busy ||
               (props.merging
                 ? conflictCount > 0
-                : stagedCount === 0 || !props.summary.trim())
+                : props.amendMode
+                  ? !props.summary.trim()
+                  : stagedCount === 0 || !props.summary.trim())
             }
             onClick={props.onCommit}
           >
@@ -201,6 +235,8 @@ export function ChangesView(props: Props): JSX.Element {
               <span className="spinner" />
             ) : props.merging ? (
               'Commit merge'
+            ) : props.amendMode ? (
+              'Amend last commit'
             ) : (
               `Commit to ${status.branch}`
             )}

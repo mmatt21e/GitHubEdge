@@ -58,6 +58,7 @@ export default function App(): JSX.Element {
   const [syncing, setSyncing] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [merging, setMerging] = useState(false)
+  const [amendMode, setAmendMode] = useState(false)
 
   // GitHub state.
   const [account, setAccount] = useState<GitHubAccount | null>(null)
@@ -130,6 +131,7 @@ export default function App(): JSX.Element {
     setDiff(null)
     setSelectedPR(null)
     setPulls([])
+    setAmendMode(false)
     refresh(currentRepo)
   }, [currentRepo, refresh])
 
@@ -241,14 +243,40 @@ export default function App(): JSX.Element {
     setBusy(true)
     const res = merging
       ? await window.api.git.mergeContinue(currentRepo.path, message || undefined)
-      : await window.api.git.commit(currentRepo.path, message)
+      : amendMode
+        ? await window.api.git.amend(currentRepo.path, message)
+        : await window.api.git.commit(currentRepo.path, message)
     setBusy(false)
     if (!res.ok) return notify(res.error!, true)
     setSummary('')
     setDescription('')
+    setAmendMode(false)
     setSelectedPath(null)
     setDiff(null)
-    notify(merging ? 'Merge committed.' : 'Commit created.')
+    notify(merging ? 'Merge committed.' : amendMode ? 'Commit amended.' : 'Commit created.')
+    await refresh(currentRepo)
+  }
+
+  async function toggleAmend(on: boolean): Promise<void> {
+    setAmendMode(on)
+    if (on && currentRepo) {
+      const res = await window.api.git.lastMessage(currentRepo.path)
+      if (res.ok) {
+        const [first, ...rest] = (res.data ?? '').split('\n')
+        setSummary(first ?? '')
+        setDescription(rest.join('\n').trim())
+      }
+    } else {
+      setSummary('')
+      setDescription('')
+    }
+  }
+
+  async function undoLastCommit(): Promise<void> {
+    if (!currentRepo) return
+    const res = await window.api.git.undoLast(currentRepo.path)
+    if (!res.ok) return notify(res.error!, true)
+    notify('Undid last commit — its changes are staged.')
     await refresh(currentRepo)
   }
 
@@ -608,6 +636,9 @@ export default function App(): JSX.Element {
                 generating={generating}
                 hasProvider={hasProvider}
                 merging={merging}
+                canAmend={commits.length > 0}
+                amendMode={amendMode}
+                lastCommitSubject={commits[0]?.subject}
                 summary={summary}
                 description={description}
                 onSummaryChange={setSummary}
@@ -618,6 +649,8 @@ export default function App(): JSX.Element {
                 onDiscard={discard}
                 onCommit={doCommit}
                 onGenerate={generateMessage}
+                onToggleAmend={toggleAmend}
+                onUndoLast={undoLastCommit}
                 onStash={stashChanges}
                 onStashPop={stashPop}
                 onStashDrop={stashDrop}

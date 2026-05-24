@@ -48,6 +48,11 @@ const api = {
       ipcRenderer.invoke('git:discard', path, files),
     commit: (path: string, message: string): Promise<GitResult> =>
       ipcRenderer.invoke('git:commit', path, message),
+    amend: (path: string, message: string): Promise<GitResult> =>
+      ipcRenderer.invoke('git:amend', path, message),
+    undoLast: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:undoLast', path),
+    lastMessage: (path: string): Promise<GitResult<string>> =>
+      ipcRenderer.invoke('git:lastMessage', path),
     push: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:push', path),
     pull: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:pull', path),
     fetch: (path: string): Promise<GitResult> => ipcRenderer.invoke('git:fetch', path),

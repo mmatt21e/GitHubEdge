@@ -199,6 +199,21 @@ export async function commit(repoPath: string, message: string): Promise<void> {
   await git(repoPath, ['commit', '-m', message])
 }
 
+export async function amendCommit(repoPath: string, message: string): Promise<void> {
+  if (!message.trim()) throw new Error('Commit message cannot be empty.')
+  await git(repoPath, ['commit', '--amend', '-m', message])
+}
+
+/** Soft-reset the last commit, keeping its changes staged. */
+export async function undoLastCommit(repoPath: string): Promise<void> {
+  await git(repoPath, ['reset', '--soft', 'HEAD~1'])
+}
+
+export async function lastCommitMessage(repoPath: string): Promise<string> {
+  const out = await git(repoPath, ['log', '-1', '--pretty=%B']).catch(() => '')
+  return out.replace(/\n+$/, '')
+}
+
 export async function push(repoPath: string): Promise<void> {
   const status = await getStatus(repoPath)
   if (status.upstream) {
