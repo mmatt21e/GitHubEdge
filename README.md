@@ -10,9 +10,12 @@ Built with Electron + React + TypeScript.
 - Repository actions: open in file explorer / terminal, view on GitHub, copy path
 - Changes view: stage/unstage, discard (single or all), syntax-highlighted diffs, commit, amend, and undo last commit
 - Push / pull / fetch with ahead-behind tracking
-- Branch list, switch, create, rename, delete, and **merge** with an inline 3-way conflict editor (use ours/theirs/both or edit directly)
-- Commit history with syntax-highlighted per-commit file diffs
+- Branch list, switch, create, rename, delete, check out remote branches, and **merge** with an inline 3-way conflict editor (use ours/theirs/both or edit directly)
+- Commit history with syntax-highlighted per-commit file diffs, copy SHA, and open-on-GitHub
+- Tags: shown in history, create at a commit, delete, and push
 - Stash save / pop / drop
+- Filter boxes for repositories, branches, changed files, and history
+- Status bar (branch, ahead/behind, change count, path) and live window title
 - **GitHub sign-in** (personal access token or OAuth device flow): authenticated push/pull/clone, browse & clone your repos, create a repo and publish it, and pull requests with CI checks, review conversation, create, and local checkout
 - **AI commit messages** streamed from your chosen model
 - Configure multiple AI providers

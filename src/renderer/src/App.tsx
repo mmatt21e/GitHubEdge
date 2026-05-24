@@ -89,6 +89,13 @@ export default function App(): JSX.Element {
     document.documentElement.dataset.theme = settings.theme ?? 'system'
   }, [settings.theme])
 
+  // Reflect the current repo/branch in the window title.
+  useEffect(() => {
+    document.title = currentRepo
+      ? `${currentRepo.name}${status ? ` — ${status.branch}` : ''} · GitHubEdge`
+      : 'GitHubEdge'
+  }, [currentRepo, status])
+
   // Initial load.
   useEffect(() => {
     window.api.settings.get().then((s) => {
@@ -870,6 +877,25 @@ export default function App(): JSX.Element {
                 <div className="placeholder">Select a pull request to view details.</div>
               ))}
           </div>
+        </div>
+      )}
+
+      {currentRepo && status && (
+        <div className="statusbar">
+          <span title="Current branch">⎇ {status.branch}</span>
+          {status.upstream && (
+            <span title={`vs ${status.upstream}`}>
+              ↑{status.ahead} ↓{status.behind}
+            </span>
+          )}
+          {merging && <span style={{ color: 'var(--yellow)' }}>merging</span>}
+          <span>
+            {status.files.length} change{status.files.length === 1 ? '' : 's'}
+          </span>
+          <span style={{ flex: 1 }} />
+          <span className="muted" title={currentRepo.path}>
+            {currentRepo.path}
+          </span>
         </div>
       )}
 

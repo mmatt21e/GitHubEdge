@@ -211,6 +211,25 @@ select:focus {
   min-height: 0;
 }
 
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 24px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.statusbar .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar {
   width: 300px;
   min-width: 240px;
