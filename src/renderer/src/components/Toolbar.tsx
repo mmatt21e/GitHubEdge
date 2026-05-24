@@ -8,6 +8,8 @@ interface Props {
   branches: Branch[]
   syncing: boolean
   account: GitHubAccount | null
+  isGitHubRepo: boolean
+  notify: (message: string, error?: boolean) => void
   onSelectRepo: (repo: Repo) => void
   onAddLocal: () => void
   onClone: () => void
@@ -37,6 +39,19 @@ export function Toolbar(props: Props): JSX.Element {
     return { main: 'Fetch origin', sub: status.upstream ?? 'no upstream' }
   }
   const sync = syncLabel()
+
+  async function viewOnGitHub(): Promise<void> {
+    if (!props.currentRepo) return
+    const res = await window.api.github.webUrl(props.currentRepo.path)
+    if (res.ok && res.data) window.api.shell.openExternal(res.data)
+    else props.notify('Could not determine the GitHub URL for this repository.', true)
+  }
+
+  async function openTerminal(): Promise<void> {
+    if (!props.currentRepo) return
+    const res = await window.api.shell.openTerminal(props.currentRepo.path)
+    if (!res.ok) props.notify(res.error!, true)
+  }
 
   function close(): void {
     setOpenMenu(null)
@@ -119,6 +134,50 @@ export function Toolbar(props: Props): JSX.Element {
             >
               ⬇ Clone from GitHub…
             </div>
+            {props.currentRepo && (
+              <>
+                <div className="dropdown-section">{props.currentRepo.name}</div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    window.api.shell.openPath(props.currentRepo!.path)
+                    close()
+                  }}
+                >
+                  🗂 Open in file explorer
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    openTerminal()
+                    close()
+                  }}
+                >
+                  ⌨ Open in terminal
+                </div>
+                {props.isGitHubRepo && (
+                  <div
+                    className="dropdown-item"
+                    onClick={() => {
+                      viewOnGitHub()
+                      close()
+                    }}
+                  >
+                    ↗ View on GitHub
+                  </div>
+                )}
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    window.api.clipboard.write(props.currentRepo!.path)
+                    props.notify('Path copied to clipboard.')
+                    close()
+                  }}
+                >
+                  ⧉ Copy repository path
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

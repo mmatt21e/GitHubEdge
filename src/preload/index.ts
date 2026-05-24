@@ -30,7 +30,11 @@ const api = {
   },
   shell: {
     openPath: (path: string): Promise<string> => ipcRenderer.invoke('shell:openPath', path),
-    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url)
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+    openTerminal: (dir: string): Promise<GitResult> => ipcRenderer.invoke('shell:openTerminal', dir)
+  },
+  clipboard: {
+    write: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:write', text)
   },
   git: {
     isRepo: (path: string): Promise<GitResult<boolean>> => ipcRenderer.invoke('git:isRepo', path),
@@ -140,6 +144,8 @@ const api = {
     ): Promise<GitResult<GitHubAccount>> =>
       ipcRenderer.invoke('github:devicePoll', deviceCode, interval, expiresIn),
     repos: (): Promise<GitResult<GitHubRepo[]>> => ipcRenderer.invoke('github:repos'),
+    webUrl: (repoPath: string): Promise<GitResult<string | null>> =>
+      ipcRenderer.invoke('github:webUrl', repoPath),
     checkoutPull: (repoPath: string, prNumber: number): Promise<GitResult<string>> =>
       ipcRenderer.invoke('github:checkoutPull', repoPath, prNumber),
     pulls: (repoPath: string): Promise<GitResult<PullRequest[]>> =>

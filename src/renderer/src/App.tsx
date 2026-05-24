@@ -537,6 +537,8 @@ export default function App(): JSX.Element {
         branches={branches}
         syncing={syncing}
         account={account}
+        isGitHubRepo={isGitHubRepo}
+        notify={notify}
         onSelectRepo={setCurrentRepo}
         onAddLocal={addLocal}
         onClone={() => setShowClone(true)}

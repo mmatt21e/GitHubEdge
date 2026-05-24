@@ -1,4 +1,5 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, BrowserWindow, clipboard } from 'electron'
+import { spawn } from 'child_process'
 import * as git from './git'
 import * as llm from './llm'
 import * as github from './github'
@@ -49,6 +50,18 @@ function requireToken(): string {
   const token = loadSettings().github?.token
   if (!token) throw new Error('Not signed in to GitHub.')
   return token
+}
+
+function openTerminalAt(dir: string): void {
+  if (process.platform === 'win32') {
+    spawn('cmd.exe', ['/c', 'start', '""', 'cmd.exe'], { cwd: dir, detached: true })
+  } else if (process.platform === 'darwin') {
+    spawn('open', ['-a', 'Terminal', dir], { detached: true })
+  } else {
+    // Best-effort on Linux: try a few common terminals.
+    const term = process.env.TERMINAL || 'x-terminal-emulator'
+    spawn(term, [], { cwd: dir, detached: true, stdio: 'ignore' })
+  }
 }
 
 async function githubContext(repoPath: string): Promise<{ owner: string; repo: string }> {
@@ -104,6 +117,17 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('shell:openPath', (_e, path: string) => shell.openPath(path))
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+  ipcMain.handle('shell:openTerminal', wrap(async (dir: string) => openTerminalAt(dir)))
+  ipcMain.handle('clipboard:write', (_e, text: string) => clipboard.writeText(text))
+  ipcMain.handle(
+    'github:webUrl',
+    wrap(async (repoPath: string) => {
+      const url = await git.getRemoteUrl(repoPath)
+      if (!url) return null
+      const parsed = github.parseGitHubRemote(url)
+      return parsed ? `https://github.com/${parsed.owner}/${parsed.repo}` : null
+    })
+  )
 
   // ---- Git ----
   ipcMain.handle('git:isRepo', wrap((path: string) => git.isGitRepo(path)))
